@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joesonw/drlee/cmd/drlee/commands"
+	"github.com/joesonw/drlee/pkg/commands"
 	"github.com/joesonw/drlee/pkg/utils"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"

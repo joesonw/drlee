@@ -7,7 +7,7 @@ go_library(
         "debug.go",
         "server.go",
     ],
-    importpath = "github.com/joesonw/drlee/cmd/drlee/commands",
+    importpath = "github.com/joesonw/drlee/pkg/commands",
     visibility = ["//visibility:public"],
     deps = [
         "//_proto:go_default_library",
