@@ -17,10 +17,6 @@ func (cb *Callback) Execute(L *lua.LState) {
 		return
 	}
 
-	if L.IsClosed() {
-		return
-	}
-
 	parent := GetContextRecovery(L.Context())
 	if err := L.CallByParam(lua.P{
 		Fn:      cb.f,

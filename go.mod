@@ -2,8 +2,6 @@ module github.com/joesonw/drlee
 
 go 1.14
 
-replace github.com/yuin/gopher-lua => github.com/joesonw/gopher-lua v0.0.0-20200630133204-a649d3d87ee0
-
 require (
 	bou.ke/monkey v1.0.2
 	github.com/DATA-DOG/go-sqlmock v1.4.1
@@ -22,7 +20,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.6.1
-	github.com/yuin/gopher-lua v0.0.0
+	github.com/yuin/gopher-lua v0.0.0-20200603152657-dc2b0ca8b37e // indirect
 	go.uber.org/zap v1.15.0
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.23.0
