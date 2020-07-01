@@ -38,6 +38,7 @@ type Env struct {
 	RPC           RPC
 	ServeHTTP     ServeHTTP
 	OpenFile      OpenFile
+	AsyncStack    *AsyncStack
 }
 
 func (e *Env) Clone(L *lua.LState) *Env {

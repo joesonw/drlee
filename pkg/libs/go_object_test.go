@@ -33,8 +33,8 @@ var _ = Describe("GoObject", func() {
 			L := lua.NewState(lua.Options{
 				SkipOpenLibs: true,
 			})
+			L.SetContext(context.Background())
 			defer L.Close()
-			L.SetContext(NewContext(context.Background(), nil))
 			lua.OpenBase(L)
 			lua.OpenPackage(L)
 			obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, false)
@@ -88,8 +88,8 @@ var _ = Describe("GoObject", func() {
 			L := lua.NewState(lua.Options{
 				SkipOpenLibs: true,
 			})
+			L.SetContext(context.Background())
 			defer L.Close()
-			L.SetContext(NewContext(context.Background(), nil))
 			lua.OpenBase(L)
 			lua.OpenPackage(L)
 			val := "test"
@@ -105,8 +105,8 @@ var _ = Describe("GoObject", func() {
 			L := lua.NewState(lua.Options{
 				SkipOpenLibs: true,
 			})
+			L.SetContext(context.Background())
 			defer L.Close()
-			L.SetContext(NewContext(context.Background(), nil))
 			lua.OpenBase(L)
 			lua.OpenPackage(L)
 			val := "test"
@@ -118,6 +118,7 @@ var _ = Describe("GoObject", func() {
 			L2 := lua.NewState(lua.Options{
 				SkipOpenLibs: true,
 			})
+			L2.SetContext(context.Background())
 			defer L2.Close()
 			L2.SetContext(context.Background())
 			lua.OpenBase(L2)

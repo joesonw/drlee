@@ -42,7 +42,7 @@ var _ = Describe("SQL", func() {
 	})
 
 	Describe("SQLConn", func() {
-		It("shuold insert and query", func() {
+		It("should insert and query", func() {
 			db, mock, err := sqlmock.New()
 			Expect(err).To(BeNil())
 			defer db.Close()

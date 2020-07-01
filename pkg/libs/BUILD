@@ -4,10 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "all.go",
+        "async_stack.go",
         "call.go",
         "callback.go",
         "check.go",
-        "context.go",
         "env.go",
         "error.go",
         "fs.go",

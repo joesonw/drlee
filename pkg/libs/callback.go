@@ -13,22 +13,7 @@ type Callback struct {
 
 // Execute called by callback stack handler
 func (cb *Callback) Execute(L *lua.LState) {
-	if cb.f == nil {
-		return
-	}
-
-	parent := GetContextRecovery(L.Context())
-	if err := L.CallByParam(lua.P{
-		Fn:      cb.f,
-		Protect: true,
-	}, cb.args...); err != nil {
-		if parent != nil {
-			parent(err)
-		} else {
-			L.RaiseError(err.Error())
-		}
-	}
-
+	SafeCall(L, nil, cb.f, cb.args...)
 }
 
 func (cb *Callback) CallP(L *lua.LState, args ...lua.LValue) {
@@ -37,9 +22,9 @@ func (cb *Callback) CallP(L *lua.LState, args ...lua.LValue) {
 	}
 	cb.resolved = true
 
-	stack := GetContextCallbackStack(L.Context())
+	stack := getAsyncStack(L)
 	cb.args = args
-	stack <- cb
+	stack.Enqueue(cb)
 }
 
 func (cb *Callback) Call(L *lua.LState, err lua.LValue, result lua.LValue) {

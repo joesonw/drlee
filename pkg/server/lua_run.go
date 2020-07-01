@@ -12,10 +12,9 @@ import (
 	"sync"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/joesonw/drlee/pkg/libs"
 	"github.com/joesonw/drlee/pkg/utils"
+	uuid "github.com/satori/go.uuid"
 	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
 	"go.uber.org/zap"
@@ -170,24 +169,17 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 	L := lua.NewState(lua.Options{
 		SkipOpenLibs: true,
 	})
-
+	L.SetContext(context.Background())
 	exit := make(chan struct{}, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
 
-	stack := make(chan *libs.Callback, 1024)
-
+	stack := libs.NewAsyncStack(L, 1024)
+	stack.Start()
 	go func() {
-		for {
-			select {
-			case <-exit:
-				return
-			case cb := <-stack:
-				cb.Execute(L)
-			}
-		}
+		<-exit
+		stack.Stop()
 	}()
 
-	L.SetContext(libs.NewContext(context.Background(), stack))
 	mu := &sync.Mutex{}
 	mu.Lock()
 	libs.OpenAll(L, &libs.Env{
@@ -200,7 +192,8 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 		ServerStartMU: mu,
 		Dir:           dir,
 		ServeHTTP:     s.RegisterLuaHTTPServer,
-		OpenFile: libs.OpenFile(func(name string, flag, perm int) (libs.File, error) {
+		AsyncStack:    stack,
+		OpenFile: func(name string, flag, perm int) (libs.File, error) {
 			f, err := os.OpenFile(name, flag, os.FileMode(perm))
 			if err != nil {
 				return nil, err
@@ -214,7 +207,7 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 				s:    s,
 				File: f,
 			}, nil
-		}),
+		},
 	})
 
 	f := &lua.LFunction{
@@ -224,13 +217,10 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 		GFunction: nil,
 	}
 
-	lock := libs.GetContextLock(L.Context())
-	lock.Lock()
 	L.Push(f)
 	if err := L.PCall(0, lua.MultRet, nil); err != nil {
 		logger.Fatal("unable to run lua", zap.Error(err))
 	}
-	lock.Unlock()
 	mu.Lock()
 	mu.Unlock()
 	s.luaStates[id] = L

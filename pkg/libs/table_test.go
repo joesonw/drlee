@@ -1,6 +1,7 @@
 package libs
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 
 func TestLuaTableToStruct(t *testing.T) {
 	L := lua.NewState()
+	L.SetContext(context.Background())
 	defer L.Close()
 
 	table := L.NewTable()
@@ -41,6 +43,7 @@ func TestLuaTableToStruct(t *testing.T) {
 
 func TestLuaStructToTable(t *testing.T) {
 	L := lua.NewState()
+	L.SetContext(context.Background())
 	defer L.Close()
 
 	type S struct {

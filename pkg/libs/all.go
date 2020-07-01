@@ -4,11 +4,19 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+func getAsyncStack(L *lua.LState) *AsyncStack {
+	v, _ := L.Env.RawGetString("stack").(*lua.LUserData).Value.(*AsyncStack)
+	return v
+}
+
 // OpenAll open all libraries
 func OpenAll(
 	L *lua.LState,
 	env *Env,
 ) {
+	stackUD := L.NewUserData()
+	stackUD.Value = env.AsyncStack
+	L.Env.RawSetString("stack", stackUD)
 	L.SetGlobal("start_server", L.NewFunction(func(state *lua.LState) int {
 		env.ServerStartMU.Unlock()
 		return 0

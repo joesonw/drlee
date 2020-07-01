@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	lua "github.com/yuin/gopher-lua"
-	"go.uber.org/zap"
 )
 
 type ServeHTTP func(addr string) (chan *HTTPTuple, error)
@@ -72,8 +71,8 @@ func (res *HTTPResponse) GoObjectSet(key, value lua.LValue) bool {
 }
 
 type lHTTPServer struct {
-	serve ServeHTTP
-	*zap.Logger
+	serve   ServeHTTP
+	handler *lua.LFunction
 }
 
 func upHTTPServer(L *lua.LState) *lHTTPServer {
@@ -111,14 +110,9 @@ func lServeHTTPServer(L *lua.LState, handler *lua.LFunction, ch chan *HTTPTuple)
 		req := NewGoObject(L, lHTTPRequestFuncs, reqProps, tuple.req, false)
 		res := NewGoObject(L, lHTTPResponseFuncs, nil, tuple.res, false)
 
-		L.SetContext(WithRecover(L.Context(), func(err error) {
+		EnqueueExecutable(L, func(err error) {
 			tuple.ch <- err
-		}))
-		err := SafeCall(L, handler, req, res)
-		L.SetContext(WithRecover(L.Context(), nil))
-		if err != nil {
-			tuple.ch <- err
-		}
+		}, handler, req, res)
 	}
 }
 
@@ -135,7 +129,7 @@ func OpenHTTPServer(L *lua.LState, env *Env) {
 }
 
 var lHTTPRequestFuncs = map[string]lua.LGFunction{
-	"read": lHTTPRequestRead,
+	"readall": lHTTPRequestReadAll,
 }
 
 func upHTTPRequest(L *lua.LState) *HTTPRequest {
@@ -146,9 +140,9 @@ func upHTTPRequest(L *lua.LState) *HTTPRequest {
 	return req.(*HTTPRequest)
 }
 
-func lHTTPRequestRead(L *lua.LState) int {
+func lHTTPRequestReadAll(L *lua.LState) int {
 	req := upHTTPRequest(L)
-	cb := NewCallback(L.Get(1))
+	cb := NewCallback(L.Get(2))
 	go func() {
 		b, err := ioutil.ReadAll(req)
 		if err := req.Close(); err != nil {
@@ -157,7 +151,7 @@ func lHTTPRequestRead(L *lua.LState) int {
 		if err != nil {
 			cb.Reject(L, Error(err))
 		} else {
-			cb.Resolve(L, lua.LString(string(b)))
+			cb.Resolve(L, lua.LString(b))
 		}
 	}()
 	return 0
@@ -206,7 +200,6 @@ func lHTTPResponseWrite(L *lua.LState) int {
 }
 
 func lHTTPResponseGet(L *lua.LState) int {
-	println("get header")
 	res := upHTTPResponse(L)
 	key := L.CheckString(2)
 	L.Push(lua.LString(res.Header().Get(key)))
@@ -214,7 +207,6 @@ func lHTTPResponseGet(L *lua.LState) int {
 }
 
 func lHTTPResponseSet(L *lua.LState) int {
-	println("set header")
 	res := upHTTPResponse(L)
 	key := L.CheckString(2)
 	value := L.CheckString(3)

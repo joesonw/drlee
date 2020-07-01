@@ -216,6 +216,9 @@ func valueToField(typ reflect.Type, field reflect.Value, value lua.LValue, tags 
 }
 
 func MarshalTable(L *lua.LState, in interface{}) (lua.LValue, error) {
+	if in == nil {
+		return lua.LNil, nil
+	}
 	val := reflect.ValueOf(in)
 	return fieldToValue(L, val.Type(), val, nil)
 }

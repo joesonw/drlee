@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("time", func() {
 	Describe("Timestamp", func() {
-		It("shuold get current time", func() {
+		It("should get current time", func() {
 			now := time.Date(2006, 01, 02, 15, 04, 05, 30000000, time.Local)
 			guard := monkey.Patch(time.Now, func() time.Time {
 				return now

@@ -7,20 +7,18 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-func runAsyncLuaTest(src string, open func(L *lua.LState), after ...func(L *lua.LState)) {
+func runAsyncLuaTestWithError(src string, open func(L *lua.LState), after ...func(L *lua.LState)) error {
 	L := lua.NewState(lua.Options{
 		SkipOpenLibs: true,
 	})
-
-	ch := make(chan *Callback, 1024)
-	exit := make(chan struct{}, 1)
-	go func() {
-		for c := range ch {
-			c.Execute(L)
-		}
-	}()
-	L.SetContext(NewContext(context.Background(), ch))
+	L.SetContext(context.Background())
+	stack := NewAsyncStack(L, 1024)
 	defer L.Close()
+
+	stackUD := L.NewUserData()
+	stackUD.Value = stack
+	stack.Start()
+	L.Env.RawSetString("stack", stackUD)
 
 	lua.OpenBase(L)
 	lua.OpenPackage(L)
@@ -32,21 +30,25 @@ func runAsyncLuaTest(src string, open func(L *lua.LState), after ...func(L *lua.
 		return 0
 	}))
 	err := L.DoString(src)
-	Expect(err).To(BeNil())
 	<-done
 
 	for _, a := range after {
 		a(L)
 	}
+	stack.Stop()
+	return err
+}
 
-	exit <- struct{}{}
+func runAsyncLuaTest(src string, open func(L *lua.LState), after ...func(L *lua.LState)) {
+	err := runAsyncLuaTestWithError(src, open, after...)
+	Expect(err).To(BeNil())
 }
 
 func runSyncLuaTest(src string, open func(L *lua.LState), after ...func(L *lua.LState)) {
 	L := lua.NewState(lua.Options{
 		SkipOpenLibs: true,
 	})
-	L.SetContext(NewContext(context.Background(), nil))
+	L.SetContext(context.Background())
 	defer L.Close()
 
 	lua.OpenBase(L)

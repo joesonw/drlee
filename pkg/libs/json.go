@@ -113,6 +113,9 @@ func JSONDecode(L *lua.LState, data []byte) (lua.LValue, error) {
 }
 
 func JSONDecodeValue(L *lua.LState, value interface{}) lua.LValue {
+	if value == nil {
+		return lua.LNil
+	}
 	switch converted := value.(type) {
 	case bool:
 		return lua.LBool(converted)

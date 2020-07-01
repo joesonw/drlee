@@ -16,13 +16,16 @@ type RPCRequest struct {
 	err    error
 	done   chan struct{}
 	isDone bool
+
+	_luaDone chan struct{}
 }
 
 func NewRPCRequest(name string, body []byte) *RPCRequest {
 	return &RPCRequest{
-		name: name,
-		body: body,
-		done: make(chan struct{}, 1),
+		name:     name,
+		body:     body,
+		done:     make(chan struct{}, 1),
+		_luaDone: make(chan struct{}, 1),
 	}
 }
 
@@ -56,6 +59,30 @@ func (req *RPCRequest) reject(err error) {
 	req.done <- struct{}{}
 }
 
+func (req *RPCRequest) reply(L *lua.LState) int {
+	defer func() {
+		req._luaDone <- struct{}{}
+	}()
+	if L.GetTop() >= 1 {
+		if err := L.Get(1); err != lua.LNil {
+			req.reject(errors.New(err.String()))
+			return 0
+		}
+	}
+	if L.GetTop() >= 2 {
+		b, err := JSONEncode(L.Get(2))
+		if err != nil {
+			req.reject(err)
+		} else {
+			req.resolve(b)
+		}
+	} else {
+		req.resolve(nil)
+	}
+
+	return 0
+}
+
 type RPC interface {
 	LRPCRegister(ctx context.Context, name string) (chan *RPCRequest, error)
 	LRPCCall(ctx context.Context, timeout time.Duration, name string, body []byte) ([]byte, error)
@@ -86,38 +113,11 @@ func (r *lRegistry) Call(req *RPCRequest) {
 		return
 	}
 
-	done := make(chan struct{}, 1)
-	defer close(done)
-
-	reply := func(L *lua.LState) int {
-		defer func() {
-			done <- struct{}{}
-		}()
-
-		if L.GetTop() >= 1 {
-			if err := L.Get(1); err != lua.LNil {
-				req.reject(errors.New(err.String()))
-				return 0
-			}
-		}
-		if L.GetTop() >= 2 {
-			b, err := JSONEncode(L.Get(2))
-			if err != nil {
-				req.reject(err)
-			} else {
-				req.resolve(b)
-			}
-		} else {
-			req.resolve(nil)
-		}
-
-		return 0
-	}
-
-	if err := SafeCall(L, f, val, L.NewFunction(reply)); err != nil {
+	EnqueueExecutable(L, func(err error) {
 		req.reject(err)
-	}
-	<-done
+	}, f, val, L.NewFunction(req.reply))
+
+	<-req._luaDone
 }
 
 func OpenRegistry(L *lua.LState, env *Env) {
