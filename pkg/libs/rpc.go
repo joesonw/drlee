@@ -120,7 +120,7 @@ func (r *lRegistry) Call(req *RPCRequest) {
 	<-req._luaDone
 }
 
-func OpenRegistry(L *lua.LState, env *Env) {
+func OpenRPC(L *lua.LState, env *Env) {
 	ud := L.NewUserData()
 	ud.Value = &lRegistry{
 		L:        L,

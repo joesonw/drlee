@@ -43,6 +43,7 @@ go_test(
         "http_test.go",
         "json_test.go",
         "libs_suite_test.go",
+        "rpc_test.go",
         "sql_test.go",
         "table_test.go",
         "testutils_test.go",

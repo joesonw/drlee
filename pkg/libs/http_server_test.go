@@ -29,7 +29,6 @@ func (w *testHTTPResponseWriter) WriteHeader(statusCode int) {
 
 var _ = Describe("HTTP Server", func() {
 	It("should serve", func() {
-		Skip("ok")
 		tuples := make(chan *HTTPTuple, 1)
 		ch := make(chan error, 1)
 		output := bytes.NewBuffer(nil)

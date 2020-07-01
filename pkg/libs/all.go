@@ -27,7 +27,7 @@ func OpenAll(
 	OpenTime(L)
 	OpenSQL(L, env)
 	OpenEnv(L)
-	OpenRegistry(L, env)
+	OpenRPC(L, env)
 	OpenHTTPServer(L, env)
 	OpenFS(L, env)
 	lua.OpenBase(L)
