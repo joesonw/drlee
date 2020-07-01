@@ -15,7 +15,7 @@ var _ = Describe("Deferred", func() {
 		L := lua.NewState(lua.Options{
 			SkipOpenLibs: true,
 		})
-		L.SetContext(NewContext(context.Background()))
+		L.SetContext(NewContext(context.Background(), nil))
 		defer L.Close()
 		lua.OpenBase(L)
 		lua.OpenPackage(L)
@@ -50,7 +50,7 @@ var _ = Describe("Deferred", func() {
 		L := lua.NewState(lua.Options{
 			SkipOpenLibs: true,
 		})
-		L.SetContext(NewContext(context.Background()))
+		L.SetContext(NewContext(context.Background(), nil))
 		defer L.Close()
 		lua.OpenBase(L)
 		lua.OpenPackage(L)

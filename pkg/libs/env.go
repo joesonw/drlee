@@ -25,6 +25,8 @@ type GlobalFunc struct {
 	Function lua.LGFunction
 }
 
+type OpenFile func(name string, flag, perm int) (File, error)
+
 type Env struct {
 	Logger        *zap.Logger
 	ServerStartMU sync.Locker
@@ -35,9 +37,11 @@ type Env struct {
 	Globals       map[string]lua.LValue
 	RPC           RPC
 	ServeHTTP     ServeHTTP
+	OpenFile      OpenFile
 }
 
 func (e *Env) Clone(L *lua.LState) *Env {
+
 	globalFuncs := map[string]*GlobalFunc{}
 	for k, v := range e.GlobalFuncs {
 		globalFuncs[k] = v

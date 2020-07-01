@@ -48,7 +48,7 @@ func upTimestamp(L *lua.LState) *lTimestamp {
 
 func timeNow(L *lua.LState) int {
 	now := time.Now()
-	L.Push(newTimestamp(L, now))
+	L.Push(NewTimestamp(L, now))
 	return 1
 }
 
@@ -97,7 +97,7 @@ func tickerNextTick(L *lua.LState) int {
 	cb := NewCallback(L.Get(2))
 	go func() {
 		timestamp := <-ticker.goTicker.C
-		cb.CallP(L, newTimestamp(L, timestamp))
+		cb.CallP(L, NewTimestamp(L, timestamp))
 	}()
 	return 0
 }
@@ -108,7 +108,7 @@ func tickerStop(L *lua.LState) int {
 	return 0
 }
 
-func newTimestamp(L *lua.LState, t time.Time) lua.LValue {
+func NewTimestamp(L *lua.LState, t time.Time) lua.LValue {
 	timestamp := &lTimestamp{
 		goTime: t,
 	}

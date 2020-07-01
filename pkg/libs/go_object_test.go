@@ -11,31 +11,30 @@ import (
 var _ = Describe("GoObject", func() {
 	Context("NewGoObject", func() {
 		It("should allow extra data", func() {
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
-			})
-			defer L.Close()
-			L.SetContext(NewContext(context.Background()))
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-			obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, true)
-			L.SetGlobal("obj", obj)
-			OpenJSON(L)
-			err := L.DoString(`
-obj.test = 123
-result = json_encode(obj)
-`)
-			Expect(err).To(BeNil())
-			val := L.GetGlobal("result")
-			Expect(val.Type()).To(Equal(lua.LTString))
-			Expect(val.String()).To(Equal(`{"customProperties":{"test":123},"properties":{"hello":"world"}}`))
+			runSyncLuaTest(`
+				obj.test = 123
+				result = json_encode(obj)
+			`,
+				func(L *lua.LState) {
+					obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, true)
+					L.SetGlobal("obj", obj)
+					OpenJSON(L)
+				},
+				func(L *lua.LState) {
+
+					val := L.GetGlobal("result")
+					Expect(val.Type()).To(Equal(lua.LTString))
+					Expect(val.String()).To(Equal(`{"customProperties":{"test":123},"properties":{"hello":"world"}}`))
+				})
+
 		})
 
 		It("should not allow extra data", func() {
 			L := lua.NewState(lua.Options{
 				SkipOpenLibs: true,
 			})
-			L.SetContext(NewContext(context.Background()))
+			defer L.Close()
+			L.SetContext(NewContext(context.Background(), nil))
 			lua.OpenBase(L)
 			lua.OpenPackage(L)
 			obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, false)
@@ -46,47 +45,41 @@ result = json_encode(obj)
 		})
 
 		It("should not change properties", func() {
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
-			})
-			defer L.Close()
-			L.SetContext(NewContext(context.Background()))
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-			obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, true)
-			L.SetGlobal("obj", obj)
-			OpenJSON(L)
-			err := L.DoString(`
-obj.hello = 123
-result = json_encode(obj)
-`)
-			Expect(err).To(BeNil())
-			val := L.GetGlobal("result")
-			Expect(val.Type()).To(Equal(lua.LTString))
-			Expect(val.String()).To(Equal(`{"customProperties":[],"properties":{"hello":"world"}}`))
+
+			runSyncLuaTest(`
+				obj.hello = 123
+				result = json_encode(obj)
+				`,
+				func(L *lua.LState) {
+					obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, true)
+					L.SetGlobal("obj", obj)
+					OpenJSON(L)
+				},
+				func(L *lua.LState) {
+					val := L.GetGlobal("result")
+					Expect(val.Type()).To(Equal(lua.LTString))
+					Expect(val.String()).To(Equal(`{"customProperties":[],"properties":{"hello":"world"}}`))
+				})
 		})
 	})
 
 	Context("MarshalJSON", func() {
 		It("should have proper data", func() {
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
-			})
-			defer L.Close()
-			L.SetContext(NewContext(context.Background()))
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-			obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, false)
-			L.SetGlobal("obj", obj)
-			OpenJSON(L)
-			err := L.DoString(`
-assert(obj.hello == "world", "lGoObjectGet")
-result = json_encode(obj)
-`)
-			Expect(err).To(BeNil())
-			val := L.GetGlobal("result")
-			Expect(val.Type()).To(Equal(lua.LTString))
-			Expect(val.String()).To(Equal(`{"properties":{"hello":"world"}}`))
+			runSyncLuaTest(`
+				assert(obj.hello == "world", "lGoObjectGet")
+				result = json_encode(obj)
+				`,
+				func(L *lua.LState) {
+					obj := NewGoObject(L, nil, map[string]lua.LValue{"hello": lua.LString("world")}, nil, false)
+					L.SetGlobal("obj", obj)
+					OpenJSON(L)
+				},
+				func(L *lua.LState) {
+					val := L.GetGlobal("result")
+					Expect(val.Type()).To(Equal(lua.LTString))
+					Expect(val.String()).To(Equal(`{"properties":{"hello":"world"}}`))
+				})
+
 		})
 	})
 
@@ -96,7 +89,7 @@ result = json_encode(obj)
 				SkipOpenLibs: true,
 			})
 			defer L.Close()
-			L.SetContext(NewContext(context.Background()))
+			L.SetContext(NewContext(context.Background(), nil))
 			lua.OpenBase(L)
 			lua.OpenPackage(L)
 			val := "test"
@@ -113,7 +106,7 @@ result = json_encode(obj)
 				SkipOpenLibs: true,
 			})
 			defer L.Close()
-			L.SetContext(NewContext(context.Background()))
+			L.SetContext(NewContext(context.Background(), nil))
 			lua.OpenBase(L)
 			lua.OpenPackage(L)
 			val := "test"

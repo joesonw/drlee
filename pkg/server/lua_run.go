@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/joesonw/drlee/pkg/libs"
 	"github.com/joesonw/drlee/pkg/utils"
@@ -17,6 +20,20 @@ import (
 	"github.com/yuin/gopher-lua/parse"
 	"go.uber.org/zap"
 )
+
+type luaFile struct {
+	id string
+	s  *Server
+	*os.File
+}
+
+func (f *luaFile) Close() error {
+	err := f.File.Close()
+	f.s.luaOpenedFileMu.Lock()
+	delete(f.s.luaOpenedFiles, f.id)
+	f.s.luaOpenedFileMu.Unlock()
+	return err
+}
 
 func (s *Server) LoadLua(ctx context.Context, path string) error {
 	s.reloadMu.Lock()
@@ -69,28 +86,26 @@ func (s *Server) StopLua(timeout time.Duration) error {
 	}
 	timer.Stop()
 
-	var errs []error
 	s.httpServerMappingMu.Lock()
 	for _, hs := range s.httpServerMapping {
-		if err := hs.listener.Close(); err != nil {
-			errs = append(errs, err)
-		}
+		hs.listener.Close()
 	}
 	s.httpServerMapping = map[string]*httpServer{}
 	s.httpServerMappingMu.Unlock()
 	s.luaExitChannelGroup = nil
-	if len(errs) > 0 {
-		err := errs[0]
-		for i := 1; i < len(errs); i++ {
-			err = fmt.Errorf("%w: %w", err, errs[i])
-		}
-		return err
-	}
 
 	for _, L := range s.luaStates {
 		L.Close()
 	}
 	s.luaStates = map[int]*lua.LState{}
+
+	s.luaOpenedFileMu.Lock()
+	for _, f := range s.luaOpenedFiles {
+		f.Close()
+	}
+	s.luaOpenedFiles = map[string]libs.File{}
+	s.luaOpenedFileMu.Unlock()
+
 	close(s.servicesRequestCh)
 	s.servicesRequestCh = make(chan *libs.RPCRequest, 1024)
 	return nil
@@ -148,7 +163,6 @@ func (s *Server) listenRPCForScript(id int) {
 			}
 		}
 	}
-
 }
 
 func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, proto *lua.FunctionProto) {
@@ -156,7 +170,24 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 	L := lua.NewState(lua.Options{
 		SkipOpenLibs: true,
 	})
-	L.SetContext(libs.NewContext(context.Background()))
+
+	exit := make(chan struct{}, 1)
+	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
+
+	stack := make(chan *libs.Callback, 1024)
+
+	go func() {
+		for {
+			select {
+			case <-exit:
+				return
+			case cb := <-stack:
+				cb.Execute(L)
+			}
+		}
+	}()
+
+	L.SetContext(libs.NewContext(context.Background(), stack))
 	mu := &sync.Mutex{}
 	mu.Lock()
 	libs.OpenAll(L, &libs.Env{
@@ -169,6 +200,21 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 		ServerStartMU: mu,
 		Dir:           dir,
 		ServeHTTP:     s.RegisterLuaHTTPServer,
+		OpenFile: libs.OpenFile(func(name string, flag, perm int) (libs.File, error) {
+			f, err := os.OpenFile(name, flag, os.FileMode(perm))
+			if err != nil {
+				return nil, err
+			}
+			s.luaOpenedFileMu.Lock()
+			s.luaOpenedFiles[name] = f
+			s.luaOpenedFileMu.Unlock()
+			id := uuid.NewV4().String()
+			return &luaFile{
+				id:   id,
+				s:    s,
+				File: f,
+			}, nil
+		}),
 	})
 
 	f := &lua.LFunction{

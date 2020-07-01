@@ -4,27 +4,46 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+// Callback js-style callback
 type Callback struct {
-	f *lua.LFunction
+	resolved bool
+	args     []lua.LValue
+	f        *lua.LFunction
 }
 
-func (cb *Callback) CallP(L *lua.LState, args ...lua.LValue) {
+// Execute called by callback stack handler
+func (cb *Callback) Execute(L *lua.LState) {
 	if cb.f == nil {
 		return
 	}
 
-	parent := GetContextRecovery(L.Context())
 	if L.IsClosed() {
 		return
 	}
 
-	if err := SafeCall(L, cb.f, args...); err != nil {
+	parent := GetContextRecovery(L.Context())
+	if err := L.CallByParam(lua.P{
+		Fn:      cb.f,
+		Protect: true,
+	}, cb.args...); err != nil {
 		if parent != nil {
 			parent(err)
 		} else {
 			L.RaiseError(err.Error())
 		}
 	}
+
+}
+
+func (cb *Callback) CallP(L *lua.LState, args ...lua.LValue) {
+	if cb.resolved {
+		return
+	}
+	cb.resolved = true
+
+	stack := GetContextCallbackStack(L.Context())
+	cb.args = args
+	stack <- cb
 }
 
 func (cb *Callback) Call(L *lua.LState, err lua.LValue, result lua.LValue) {

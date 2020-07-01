@@ -1,9 +1,7 @@
 package libs
 
 import (
-	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -15,67 +13,39 @@ import (
 var _ = Describe("SQL", func() {
 	Describe("Open", func() {
 		It("should open", func() {
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
-			})
-			L.SetContext(NewContext(context.Background()))
-			defer L.Close()
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-
 			req := make(chan string, 2)
 			db, _, err := sqlmock.New()
 			Expect(err).To(BeNil())
 			defer db.Close()
 
-			OpenSQL(L, &Env{
-				OpenSQL: func(driverName, dataSourceName string) (*sql.DB, error) {
-					req <- driverName
-					req <- dataSourceName
-					return db, nil
+			runAsyncLuaTest(
+				`
+				sql_open("mysql://user:password@localhost:1000/db1?utf=true", function (err)
+					assert(err == nil, "err")
+					resolve()
+				end)
+				`,
+				func(L *lua.LState) {
+					OpenSQL(L, &Env{
+						OpenSQL: func(driverName, dataSourceName string) (*sql.DB, error) {
+							req <- driverName
+							req <- dataSourceName
+							return db, nil
+						},
+					})
 				},
-			})
-
-			cbError := make(chan error, 1)
-			L.SetGlobal("resolve", L.NewClosure(func(L *lua.LState) int {
-				err := L.Get(2)
-				if err == lua.LNil {
-					cbError <- nil
-				} else {
-					cbError <- errors.New(err.String())
-				}
-				return 0
-			}))
-			err = L.DoString(`
-	sql_open("mysql://user:password@localhost:1000/db1?utf=true", function (err)
-		resolve(err)
-	end)
-	`)
-			Expect(err).To(BeNil())
-			Expect(<-cbError).To(BeNil())
-			Expect(<-req).To(Equal("mysql"))
-			Expect(<-req).To(Equal("user:password@tcp(localhost:1000)/db1?utf=true"))
+				func(L *lua.LState) {
+					Expect(<-req).To(Equal("mysql"))
+					Expect(<-req).To(Equal("user:password@tcp(localhost:1000)/db1?utf=true"))
+				})
 		})
 	})
 
 	Describe("SQLConn", func() {
 		It("shuold insert and query", func() {
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
-			})
-			defer L.Close()
-			L.SetContext(NewContext(context.Background()))
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-
 			db, mock, err := sqlmock.New()
 			Expect(err).To(BeNil())
 			defer db.Close()
-			OpenSQL(L, &Env{
-				OpenSQL: func(driverName, dataSourceName string) (*sql.DB, error) {
-					return db, nil
-				},
-			})
 
 			rows := sqlmock.NewRows([]string{"id", "name"}).
 				AddRow(1, "a").
@@ -88,36 +58,42 @@ var _ = Describe("SQL", func() {
 				WillReturnResult(sqlmock.NewResult(3, 1))
 			mock.ExpectClose()
 
-			done := make(chan struct{}, 1)
-			L.SetGlobal("resolve", L.NewClosure(func(L *lua.LState) int {
-				done <- struct{}{}
-				return 0
-			}))
-			err = L.DoString(fmt.Sprintf(`
-	sql_open("mysql://user:password@localhost:1000/db1?utf=true", function (err, conn)
-		assert(err == nil, "sql_open no error")
-		conn:query("SELECT * FROM test WHERE id = ?", 1, function (err, result)
-			assert(err == nil, "conn:query no error")
-			assert(#result == 2, "sql result result")
-			assert(result[1]["id"] == 1, "sql result 1 id")
-			assert(result[1]["name"] == "a", "sql result 1 name")
-			assert(result[2]["id"] == 2, "sql result 2 id")
-			assert(result[2]["name"] == "b", "sql result 2 name")
-			
-			conn:exec("INSERT INTO test (id, name) VALUES (?, ?)", 1, "test", function (err, lastInsertID)
-				assert(err == nil, "conn:exec no error")
-				assert(lastInsertID == 3, "sql exec")
-				conn:close(function (err)
-					assert(err == nil, "conn:close no error")
-					resolve()
+			runAsyncLuaTest(fmt.Sprintf(`
+				sql_open("mysql://user:password@localhost:1000/db1?utf=true", function (err, conn)
+					assert(err == nil, "sql_open no error")
+					conn:query("SELECT * FROM test WHERE id = ?", 1, function (err, result)
+						assert(err == nil, "conn:query no error")
+						assert(#result == 2, "sql result result")
+						assert(result[1]["id"] == 1, "sql result 1 id")
+						assert(result[1]["name"] == "a", "sql result 1 name")
+						assert(result[2]["id"] == 2, "sql result 2 id")
+						assert(result[2]["name"] == "b", "sql result 2 name")
+						
+						conn:exec("INSERT INTO test (id, name) VALUES (?, ?)", 1, "test", function (err, lastInsertID)
+							assert(err == nil, "conn:exec no error")
+							assert(lastInsertID == 3, "sql exec")
+							conn:close(function (err)
+								assert(err == nil, "conn:close no error")
+								resolve()
+							end)
+						end)
+					end)
 				end)
-			end)
-		end)
-	end)
-	`))
-			Expect(err).To(BeNil())
-			<-done
-			Expect(mock.ExpectationsWereMet()).To(BeNil())
+				`),
+				func(L *lua.LState) {
+					OpenSQL(L, &Env{
+						OpenSQL: func(driverName, dataSourceName string) (*sql.DB, error) {
+							return db, nil
+						},
+					})
+				},
+				func(L *lua.LState) {
+					OpenSQL(L, &Env{
+						OpenSQL: func(driverName, dataSourceName string) (*sql.DB, error) {
+							return db, nil
+						},
+					})
+				})
 		})
 	})
 })

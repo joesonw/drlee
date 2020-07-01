@@ -53,7 +53,6 @@ function series(list, cb)
             cb(nil, result)
             return
         end
-        print(index, total)
         list[index](wrappedCallback)
     end
 

@@ -8,11 +8,19 @@ import (
 type (
 	contextKeyLock           struct{}
 	contextKeyParentCallback struct{}
+	contextKeyCallbackStack  struct{}
 )
 
-func NewContext(parent context.Context) context.Context {
+type CallbackStack chan *Callback
+
+func NewContext(parent context.Context, callbackStack CallbackStack) context.Context {
 	l := &sync.RWMutex{}
-	return context.WithValue(parent, contextKeyLock{}, l)
+	return context.WithValue(context.WithValue(parent, contextKeyLock{}, l), contextKeyCallbackStack{}, callbackStack)
+}
+
+func GetContextCallbackStack(ctx context.Context) CallbackStack {
+	s, _ := ctx.Value(contextKeyCallbackStack{}).(CallbackStack)
+	return s
 }
 
 func GetContextLock(ctx context.Context) *sync.RWMutex {

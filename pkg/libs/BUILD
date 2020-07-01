@@ -10,6 +10,7 @@ go_library(
         "context.go",
         "env.go",
         "error.go",
+        "fs.go",
         "go_object.go",
         "http.go",
         "http_server.go",
@@ -36,6 +37,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "fs_test.go",
         "go_object_test.go",
         "http_server_test.go",
         "http_test.go",

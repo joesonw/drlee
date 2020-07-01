@@ -55,6 +55,9 @@ type Server struct {
 	luaExitChannelGroup []chan struct{}
 	luaStates           map[int]*lua.LState
 	isLuaReloading      bool
+
+	luaOpenedFileMu *sync.Mutex
+	luaOpenedFiles  map[string]libs.File
 }
 
 func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQueue diskqueue.Interface, outboxQueue diskqueue.Interface, logger *zap.Logger) *Server {
@@ -88,6 +91,9 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 		reloadMu:  &sync.Mutex{},
 		luaRunWg:  &sync.WaitGroup{},
 		luaStates: map[int]*lua.LState{},
+
+		luaOpenedFileMu: &sync.Mutex{},
+		luaOpenedFiles:  map[string]libs.File{},
 	}
 }
 

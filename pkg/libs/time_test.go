@@ -1,7 +1,6 @@
 package libs
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -20,30 +19,24 @@ var _ = Describe("time", func() {
 			})
 			defer guard.Unpatch()
 
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
-			})
-			defer L.Close()
-			L.SetContext(NewContext(context.TODO()))
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-			OpenTime(L)
-
-			err := L.DoString(fmt.Sprintf(`
-		now = time_now()
-		assert(now:__tostring() == "%s", "TIMESTAMP*:__tostring")
-		assert(now:format("%s") == "%s", "TIMESTAMP*:format")
-		assert(now.year == 2006, "TIMESTAMP*:year")
-		assert(now.month == 1, "TIMESTAMP*:month")
-		assert(now.day == 2, "TIMESTAMP*:day")
-		assert(now.weekday == 1, "TIMESTAMP*:weekday")
-		assert(now.hour == 15, "TIMESTAMP*:hour")
-		assert(now.minute == 04, "TIMESTAMP*:minute")
-		assert(now.second == 05, "TIMESTAMP*:second")
-		assert(now.millisecond == 30, "TIMESTAMP*:millisecond")
-		assert(now.milliunix == %d, "TIMESTAMP*:milliunix")
-	`, now.Format(TimeFormat), time.RFC850, now.Format(time.RFC850), now.UnixNano()/1000000))
-			Expect(err).To(BeNil())
+			runSyncLuaTest(
+				fmt.Sprintf(`
+					now = time_now()
+					assert(now:__tostring() == "%s", "TIMESTAMP*:__tostring")
+					assert(now:format("%s") == "%s", "TIMESTAMP*:format")
+					assert(now.year == 2006, "TIMESTAMP*:year")
+					assert(now.month == 1, "TIMESTAMP*:month")
+					assert(now.day == 2, "TIMESTAMP*:day")
+					assert(now.weekday == 1, "TIMESTAMP*:weekday")
+					assert(now.hour == 15, "TIMESTAMP*:hour")
+					assert(now.minute == 04, "TIMESTAMP*:minute")
+					assert(now.second == 05, "TIMESTAMP*:second")
+					assert(now.millisecond == 30, "TIMESTAMP*:millisecond")
+					assert(now.milliunix == %d, "TIMESTAMP*:milliunix")
+				`, now.Format(TimeFormat), time.RFC850, now.Format(time.RFC850), now.UnixNano()/1000000),
+				func(L *lua.LState) {
+					OpenTime(L)
+				})
 		})
 	})
 
@@ -67,66 +60,39 @@ var _ = Describe("time", func() {
 			})
 			defer guard.Unpatch()
 
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
-			})
-			defer L.Close()
-			L.SetContext(NewContext(context.TODO()))
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-			OpenTime(L)
-
-			done := make(chan struct{}, 1)
-			L.SetGlobal("resolve", L.NewClosure(func(L *lua.LState) int {
-				done <- struct{}{}
-				return 0
-			}))
-			err := L.DoString(fmt.Sprintf(`
-		local now = time_now()
-		assert(now:__tostring() == "%s")
-		time_sleep(1000, function()
-			local now = time_now()
-			assert(now:__tostring() == "%s")
-			resolve()
-		end)
-	`, now.Format(TimeFormat), now.Add(time.Second).Format(TimeFormat)))
-			Expect(err).To(BeNil())
-			<-done
+			runAsyncLuaTest(fmt.Sprintf(`
+				local now = time_now()
+				assert(now:__tostring() == "%s")
+				time_sleep(1000, function()
+					local now = time_now()
+					assert(now:__tostring() == "%s")
+					resolve()
+				end)
+			`, now.Format(TimeFormat), now.Add(time.Second).Format(TimeFormat)),
+				func(L *lua.LState) {
+					OpenTime(L)
+				})
 		})
 	})
 
 	Describe("Ticker", func() {
 		It("should tick", func() {
-			L := lua.NewState(lua.Options{
-				SkipOpenLibs: true,
+			runAsyncLuaTest(`
+				ticker = time_tick(1000)
+				start = time_now()
+				ticker:nextTick(function (now)
+					assert((now.milliunix - start.milliunix) >= 1000)
+					assert((now.milliunix - start.milliunix) < 1010)
+						ticker:nextTick(function (now)
+						assert((now.milliunix - start.milliunix) >= 2000)
+						assert((now.milliunix - start.milliunix) < 2020)
+						ticker:stop()
+						resolve()
+					end)
+				end)
+			`, func(L *lua.LState) {
+				OpenTime(L)
 			})
-			defer L.Close()
-			L.SetContext(NewContext(context.TODO()))
-			lua.OpenBase(L)
-			lua.OpenPackage(L)
-			OpenTime(L)
-
-			done := make(chan struct{}, 1)
-			L.SetGlobal("resolve", L.NewClosure(func(L *lua.LState) int {
-				done <- struct{}{}
-				return 0
-			}))
-			err := L.DoString(`
-		ticker = time_tick(1000)
-		start = time_now()
-		ticker:nextTick(function (now)
-			assert((now.milliunix - start.milliunix) >= 1000)
-			assert((now.milliunix - start.milliunix) < 1010)
-			    ticker:nextTick(function (now)
-				assert((now.milliunix - start.milliunix) >= 2000)
-				assert((now.milliunix - start.milliunix) < 2020)
-				ticker:stop()
-				resolve()
-			end)
-		end)
-	`)
-			Expect(err).To(BeNil())
-			<-done
 		})
 	})
 })

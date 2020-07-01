@@ -4,6 +4,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+// OpenAll open all libraries
 func OpenAll(
 	L *lua.LState,
 	env *Env,
@@ -20,6 +21,7 @@ func OpenAll(
 	OpenEnv(L)
 	OpenRegistry(L, env)
 	OpenHTTPServer(L, env)
+	OpenFS(L, env)
 	lua.OpenBase(L)
 	lua.OpenTable(L)
 	lua.OpenString(L)
