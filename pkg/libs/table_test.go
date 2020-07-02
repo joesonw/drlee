@@ -33,7 +33,7 @@ func TestLuaTableToStruct(t *testing.T) {
 	}
 
 	s := S{}
-	assert.Nil(t, UnmarshalTable(table, &s))
+	assert.Nil(t, UnmarshalLValue(table, &s))
 	assert.Equal(t, int64(10), s.Int64)
 	assert.Equal(t, float64(10.1), s.Float)
 	assert.Equal(t, "hello", s.String)
@@ -62,7 +62,7 @@ func TestLuaStructToTable(t *testing.T) {
 		Arr:    []int64{1, 2, 3},
 	}
 
-	in, err := MarshalTable(L, &s)
+	in, err := MarshalLValue(L, &s)
 	assert.Nil(t, err)
 	assert.NotNil(t, in)
 	table := in.(*lua.LTable)

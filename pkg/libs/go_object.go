@@ -155,7 +155,7 @@ func CloneGoObject(L *lua.LState, lVal lua.LValue) lua.LValue {
 	}
 	properties := map[string]lua.LValue{}
 	for key, value := range object.properties {
-		properties[key] = CloneValue(L, value)
+		properties[key] = Clone(L, value)
 	}
 	var table *lua.LTable
 	if object.allowExtra {

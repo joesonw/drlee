@@ -101,7 +101,7 @@ func lStartHTTPServer(L *lua.LState) int {
 
 func lServeHTTPServer(L *lua.LState, handler *lua.LFunction, ch chan *HTTPTuple) {
 	for tuple := range ch {
-		headers, _ := MarshalTable(L, tuple.req.headers)
+		headers, _ := MarshalLValue(L, tuple.req.headers)
 		reqProps := map[string]lua.LValue{
 			"method":  lua.LString(tuple.req.method),
 			"url":     lua.LString(tuple.req.url),
@@ -110,9 +110,10 @@ func lServeHTTPServer(L *lua.LState, handler *lua.LFunction, ch chan *HTTPTuple)
 		req := NewGoObject(L, lHTTPRequestFuncs, reqProps, tuple.req, false)
 		res := NewGoObject(L, lHTTPResponseFuncs, nil, tuple.res, false)
 
-		EnqueueExecutable(L, func(err error) {
+		err := CallOnStack(L, handler, req, res)
+		if err != nil {
 			tuple.ch <- err
-		}, handler, req, res)
+		}
 	}
 }
 

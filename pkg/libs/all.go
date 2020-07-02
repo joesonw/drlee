@@ -30,6 +30,7 @@ func OpenAll(
 	OpenRPC(L, env)
 	OpenHTTPServer(L, env)
 	OpenFS(L, env)
+	OpenRedis(L, env)
 	lua.OpenBase(L)
 	lua.OpenTable(L)
 	lua.OpenString(L)

@@ -111,7 +111,7 @@ var _ = Describe("HTTP Server", func() {
 			SkipOpenLibs: true,
 		})
 		L.SetContext(context.Background())
-		stack := NewAsyncStack(L, 1024)
+		stack := NewAsyncStack(L, 1024, nil)
 		defer L.Close()
 
 		stackUD := L.NewUserData()

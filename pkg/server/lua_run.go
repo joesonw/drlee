@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	redis "github.com/go-redis/redis/v8"
 	"github.com/joesonw/drlee/pkg/libs"
 	"github.com/joesonw/drlee/pkg/utils"
 	uuid "github.com/satori/go.uuid"
@@ -173,7 +174,9 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 	exit := make(chan struct{}, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
 
-	stack := libs.NewAsyncStack(L, 1024)
+	stack := libs.NewAsyncStack(L, 1024, func(err error) {
+		L.RaiseError(err.Error())
+	})
 	stack.Start()
 	go func() {
 		<-exit
@@ -193,6 +196,9 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 		Dir:           dir,
 		ServeHTTP:     s.RegisterLuaHTTPServer,
 		AsyncStack:    stack,
+		RedisNewClient: func(options *redis.Options) libs.RedisDoable {
+			return redis.NewClient(options)
+		},
 		OpenFile: func(name string, flag, perm int) (libs.File, error) {
 			f, err := os.OpenFile(name, flag, os.FileMode(perm))
 			if err != nil {

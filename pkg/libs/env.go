@@ -28,17 +28,18 @@ type GlobalFunc struct {
 type OpenFile func(name string, flag, perm int) (File, error)
 
 type Env struct {
-	Logger        *zap.Logger
-	ServerStartMU sync.Locker
-	OpenSQL       func(driverName, dataSourceName string) (*sql.DB, error)
-	Dir           string
-	HttpClient    *http.Client
-	GlobalFuncs   map[string]*GlobalFunc
-	Globals       map[string]lua.LValue
-	RPC           RPC
-	ServeHTTP     ServeHTTP
-	OpenFile      OpenFile
-	AsyncStack    *AsyncStack
+	Logger         *zap.Logger
+	ServerStartMU  sync.Locker
+	OpenSQL        func(driverName, dataSourceName string) (*sql.DB, error)
+	Dir            string
+	HttpClient     *http.Client
+	GlobalFuncs    map[string]*GlobalFunc
+	Globals        map[string]lua.LValue
+	RPC            RPC
+	ServeHTTP      ServeHTTP
+	OpenFile       OpenFile
+	AsyncStack     *AsyncStack
+	RedisNewClient RedisNewClient
 }
 
 func (e *Env) Clone(L *lua.LState) *Env {
@@ -56,7 +57,7 @@ func (e *Env) Clone(L *lua.LState) *Env {
 
 	globals := map[string]lua.LValue{}
 	for key, value := range e.Globals {
-		globals[key] = CloneValue(L, value)
+		globals[key] = Clone(L, value)
 	}
 
 	return &Env{

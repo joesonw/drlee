@@ -12,8 +12,8 @@ type Callback struct {
 }
 
 // Execute called by callback stack handler
-func (cb *Callback) Execute(L *lua.LState) {
-	SafeCall(L, nil, cb.f, cb.args...)
+func (cb *Callback) Execute(L *lua.LState, recovery func(err error)) {
+	SafeCall(L, recovery, cb.f, cb.args...)
 }
 
 func (cb *Callback) CallP(L *lua.LState, args ...lua.LValue) {

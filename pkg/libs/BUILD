@@ -43,6 +43,7 @@ go_test(
         "http_test.go",
         "json_test.go",
         "libs_suite_test.go",
+        "redis_test.go",
         "rpc_test.go",
         "sql_test.go",
         "table_test.go",
@@ -52,6 +53,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "@com_github_data_dog_go_sqlmock//:go_default_library",
+        "@com_github_go_redis_redis_v8//:go_default_library",
         "@com_github_onsi_ginkgo//:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
         "@com_github_satori_go_uuid//:go_default_library",

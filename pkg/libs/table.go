@@ -12,7 +12,7 @@ import (
 var reflectTimeDurationType = reflect.ValueOf(time.Second).Type()
 var reflectLuaFunctionProtoType = reflect.ValueOf(&lua.FunctionProto{}).Type()
 
-func UnmarshalTable(lValue lua.LValue, in interface{}) error {
+func UnmarshalLValue(lValue lua.LValue, in interface{}) error {
 	val := reflect.ValueOf(in)
 	return valueToField(val.Type(), val, lValue, nil)
 }
@@ -215,7 +215,7 @@ func valueToField(typ reflect.Type, field reflect.Value, value lua.LValue, tags 
 	return nil
 }
 
-func MarshalTable(L *lua.LState, in interface{}) (lua.LValue, error) {
+func MarshalLValue(L *lua.LState, in interface{}) (lua.LValue, error) {
 	if in == nil {
 		return lua.LNil, nil
 	}
@@ -345,12 +345,12 @@ func fieldToValue(L *lua.LState, typ reflect.Type, field reflect.Value, tags []s
 func CloneTable(L *lua.LState, table *lua.LTable) *lua.LTable {
 	newTable := L.NewTable()
 	table.ForEach(func(key lua.LValue, value lua.LValue) {
-		newTable.RawSet(CloneValue(L, key), CloneValue(L, value))
+		newTable.RawSet(Clone(L, key), Clone(L, value))
 	})
 	return newTable
 }
 
-func CloneValue(L *lua.LState, value lua.LValue) lua.LValue {
+func Clone(L *lua.LState, value lua.LValue) lua.LValue {
 	switch value.Type() {
 	case lua.LTNumber:
 		fallthrough
@@ -369,7 +369,7 @@ func CloneValue(L *lua.LState, value lua.LValue) lua.LValue {
 	return lua.LNil
 }
 
-func AnyUnmarshal(L *lua.LState, lValue lua.LValue) (interface{}, error) {
+func UnmarshalValue(L *lua.LState, lValue lua.LValue) (interface{}, error) {
 	switch lValue.Type() {
 	case lua.LTBool:
 		return lValue.(lua.LBool), nil
@@ -383,7 +383,7 @@ func AnyUnmarshal(L *lua.LState, lValue lua.LValue) (interface{}, error) {
 			arr := make([]interface{}, length)
 			var err error
 			for i := 0; i < length; i++ {
-				arr[i], err = AnyUnmarshal(L, table.RawGetInt(i+1))
+				arr[i], err = UnmarshalValue(L, table.RawGetInt(i+1))
 				if err != nil {
 					return nil, err
 				}
@@ -396,7 +396,7 @@ func AnyUnmarshal(L *lua.LState, lValue lua.LValue) (interface{}, error) {
 				if err != nil {
 					return
 				}
-				in, e := AnyUnmarshal(L, value)
+				in, e := UnmarshalValue(L, value)
 				if e != nil {
 					e = err
 					return

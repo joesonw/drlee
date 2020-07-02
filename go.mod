@@ -8,6 +8,7 @@ require (
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
+	github.com/go-redis/redis v6.15.8+incompatible // indirect
 	github.com/go-redis/redis/v8 v8.0.0-beta.5
 	github.com/gobwas/httphead v0.0.0-20180130184737-2c6c146eadee // indirect
 	github.com/gobwas/pool v0.2.0 // indirect

@@ -12,7 +12,12 @@ func runAsyncLuaTestWithError(src string, open func(L *lua.LState), after ...fun
 		SkipOpenLibs: true,
 	})
 	L.SetContext(context.Background())
-	stack := NewAsyncStack(L, 1024)
+	var stackError error
+	done := make(chan struct{}, 1)
+	stack := NewAsyncStack(L, 1024, func(err error) {
+		stackError = err
+		done <- struct{}{}
+	})
 	defer L.Close()
 
 	stackUD := L.NewUserData()
@@ -24,7 +29,6 @@ func runAsyncLuaTestWithError(src string, open func(L *lua.LState), after ...fun
 	lua.OpenPackage(L)
 	open(L)
 
-	done := make(chan struct{}, 1)
 	L.SetGlobal("resolve", L.NewClosure(func(L *lua.LState) int {
 		done <- struct{}{}
 		return 0
@@ -36,7 +40,10 @@ func runAsyncLuaTestWithError(src string, open func(L *lua.LState), after ...fun
 		a(L)
 	}
 	stack.Stop()
-	return err
+	if err != nil {
+		return err
+	}
+	return stackError
 }
 
 func runAsyncLuaTest(src string, open func(L *lua.LState), after ...func(L *lua.LState)) {

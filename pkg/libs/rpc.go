@@ -63,12 +63,14 @@ func (req *RPCRequest) reply(L *lua.LState) int {
 	defer func() {
 		req._luaDone <- struct{}{}
 	}()
+
 	if L.GetTop() >= 1 {
 		if err := L.Get(1); err != lua.LNil {
 			req.reject(errors.New(err.String()))
 			return 0
 		}
 	}
+
 	if L.GetTop() >= 2 {
 		b, err := JSONEncode(L.Get(2))
 		if err != nil {
@@ -113,9 +115,10 @@ func (r *lRegistry) Call(req *RPCRequest) {
 		return
 	}
 
-	EnqueueExecutable(L, func(err error) {
+	err = CallOnStack(L, f, val, L.NewFunction(req.reply))
+	if err != nil {
 		req.reject(err)
-	}, f, val, L.NewFunction(req.reply))
+	}
 
 	<-req._luaDone
 }
