@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/memberlist"
-	"github.com/joesonw/drlee/pkg/libs"
+	"github.com/joesonw/drlee/pkg/builtin"
 	"github.com/joesonw/drlee/proto"
 )
 
@@ -23,7 +23,7 @@ func (b RegistryBroadcast) Invalidates(other memberlist.Broadcast) bool {
 
 func (b RegistryBroadcast) Finished() {}
 
-func (s *Server) LRPCRegister(ctx context.Context, name string) (chan *libs.RPCRequest, error) {
+func (s *Server) LRPCRegister(ctx context.Context, name string) (chan *builtin.RPCRequest, error) {
 	s.localServicesMu.Lock()
 	s.localServices[name] = 1
 	s.localServicesMu.Unlock()
@@ -126,7 +126,7 @@ func (s *Server) LRPCCall(ctx context.Context, timeout time.Duration, name strin
 }
 
 func (s *Server) CallRPC(ctx context.Context, name string, body []byte) ([]byte, error) {
-	req := libs.NewRPCRequest(name, body)
+	req := builtin.NewRPCRequest(name, body)
 	s.servicesRequestCh <- req
 	select {
 	case <-ctx.Done():

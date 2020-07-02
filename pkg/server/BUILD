@@ -26,7 +26,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//_proto:go_default_library",
-        "//pkg/libs:go_default_library",
+        "//pkg/builtin:go_default_library",
+        "//pkg/lib:go_default_library",
         "//pkg/utils:go_default_library",
         "@com_github_go_redis_redis_v8//:go_default_library",
         "@com_github_hashicorp_memberlist//:go_default_library",

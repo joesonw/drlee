@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/memberlist"
-	"github.com/joesonw/drlee/pkg/libs"
+	"github.com/joesonw/drlee/pkg/builtin"
 	"github.com/joesonw/drlee/proto"
 	diskqueue "github.com/nsqio/go-diskqueue"
 	lua "github.com/yuin/gopher-lua"
@@ -24,6 +24,7 @@ func _() {
 	var _ proto.RPCServer = s
 }
 
+// Server Dr.LEE server handles lua execution environment, rpc debugging and metrics, etc.
 type Server struct {
 	config      *Config
 	meta        Meta
@@ -45,7 +46,7 @@ type Server struct {
 	replyInbox      map[string]chan *RPCResponse
 	replyInboxMu    *sync.RWMutex
 
-	servicesRequestCh   chan *libs.RPCRequest
+	servicesRequestCh   chan *builtin.RPCRequest
 	httpServerMappingMu *sync.RWMutex
 	httpServerMapping   map[string]*httpServer
 
@@ -57,9 +58,10 @@ type Server struct {
 	isLuaReloading      bool
 
 	luaOpenedFileMu *sync.Mutex
-	luaOpenedFiles  map[string]libs.File
+	luaOpenedFiles  map[string]builtin.File
 }
 
+// New creates an new Server
 func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQueue diskqueue.Interface, outboxQueue diskqueue.Interface, logger *zap.Logger) *Server {
 	if config.Concurrency < 1 {
 		config.Concurrency = 1
@@ -84,7 +86,7 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 		replyInbox:      map[string]chan *RPCResponse{},
 		replyInboxMu:    &sync.RWMutex{},
 
-		servicesRequestCh:   make(chan *libs.RPCRequest, 1024),
+		servicesRequestCh:   make(chan *builtin.RPCRequest, 1024),
 		httpServerMappingMu: &sync.RWMutex{},
 		httpServerMapping:   map[string]*httpServer{},
 
@@ -93,10 +95,11 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 		luaStates: map[int]*lua.LState{},
 
 		luaOpenedFileMu: &sync.Mutex{},
-		luaOpenedFiles:  map[string]libs.File{},
+		luaOpenedFiles:  map[string]builtin.File{},
 	}
 }
 
+// Start start the server
 func (s *Server) Start(ctx context.Context) error {
 	s.members = s.deferredMembers()
 	s.broadcasts = &memberlist.TransmitLimitedQueue{
@@ -107,10 +110,12 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop stop the server
 func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
+// handleRegistryBroadcast parse registry broadcast from peer
 func (s *Server) handleRegistryBroadcast(broadcast *RegistryBroadcast) {
 	s.servicesMu.Lock()
 	if _, ok := s.services[broadcast.Name]; !ok {

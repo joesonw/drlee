@@ -13,7 +13,8 @@ import (
 	"time"
 
 	redis "github.com/go-redis/redis/v8"
-	"github.com/joesonw/drlee/pkg/libs"
+	"github.com/joesonw/drlee/pkg/builtin"
+	"github.com/joesonw/drlee/pkg/lib"
 	"github.com/joesonw/drlee/pkg/utils"
 	uuid "github.com/satori/go.uuid"
 	lua "github.com/yuin/gopher-lua"
@@ -103,11 +104,11 @@ func (s *Server) StopLua(timeout time.Duration) error {
 	for _, f := range s.luaOpenedFiles {
 		f.Close()
 	}
-	s.luaOpenedFiles = map[string]libs.File{}
+	s.luaOpenedFiles = map[string]builtin.File{}
 	s.luaOpenedFileMu.Unlock()
 
 	close(s.servicesRequestCh)
-	s.servicesRequestCh = make(chan *libs.RPCRequest, 1024)
+	s.servicesRequestCh = make(chan *builtin.RPCRequest, 1024)
 	return nil
 }
 
@@ -174,32 +175,27 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 	exit := make(chan struct{}, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
 
-	stack := libs.NewAsyncStack(L, 1024, func(err error) {
+	stack := builtin.NewAsyncStack(L, 1024, func(err error) {
 		L.RaiseError(err.Error())
 	})
-	stack.Start()
-	go func() {
-		<-exit
-		stack.Stop()
-	}()
 
 	mu := &sync.Mutex{}
 	mu.Lock()
-	libs.OpenAll(L, &libs.Env{
+	builtin.OpenAll(L, &builtin.Env{
 		RPC:           s,
 		Logger:        logger,
 		OpenSQL:       sql.Open,
 		HttpClient:    http.DefaultClient,
-		GlobalFuncs:   map[string]*libs.GlobalFunc{},
+		GlobalFuncs:   map[string]*builtin.GlobalFunc{},
 		Globals:       map[string]lua.LValue{},
 		ServerStartMU: mu,
 		Dir:           dir,
 		ServeHTTP:     s.RegisterLuaHTTPServer,
 		AsyncStack:    stack,
-		RedisNewClient: func(options *redis.Options) libs.RedisDoable {
+		RedisNewClient: func(options *redis.Options) builtin.RedisDoable {
 			return redis.NewClient(options)
 		},
-		OpenFile: func(name string, flag, perm int) (libs.File, error) {
+		OpenFile: func(name string, flag, perm int) (builtin.File, error) {
 			f, err := os.OpenFile(name, flag, os.FileMode(perm))
 			if err != nil {
 				return nil, err
@@ -215,6 +211,9 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 			}, nil
 		},
 	})
+	if err := lib.Open(L); err != nil {
+		logger.Fatal("unable to load lua libs", zap.Error(err))
+	}
 
 	f := &lua.LFunction{
 		IsG:       false,
@@ -227,7 +226,13 @@ func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, 
 	if err := L.PCall(0, lua.MultRet, nil); err != nil {
 		logger.Fatal("unable to run lua", zap.Error(err))
 	}
+	stack.Start()
+	go func() {
+		<-exit
+		stack.Stop()
+	}()
 	mu.Lock()
 	mu.Unlock()
 	s.luaStates[id] = L
+
 }

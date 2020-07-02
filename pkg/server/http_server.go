@@ -4,16 +4,16 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/joesonw/drlee/pkg/libs"
+	"github.com/joesonw/drlee/pkg/builtin"
 	"go.uber.org/zap"
 )
 
 type httpServer struct {
 	listener net.Listener
-	ch       chan *libs.HTTPTuple
+	ch       chan *builtin.HTTPTuple
 }
 
-func (s *Server) RegisterLuaHTTPServer(addr string) (chan *libs.HTTPTuple, error) {
+func (s *Server) RegisterLuaHTTPServer(addr string) (chan *builtin.HTTPTuple, error) {
 	s.httpServerMappingMu.Lock()
 	defer s.httpServerMappingMu.Unlock()
 	hs, ok := s.httpServerMapping[addr]
@@ -26,7 +26,7 @@ func (s *Server) RegisterLuaHTTPServer(addr string) (chan *libs.HTTPTuple, error
 		return nil, err
 	}
 
-	ch := make(chan *libs.HTTPTuple, 128)
+	ch := make(chan *builtin.HTTPTuple, 128)
 
 	hs = &httpServer{
 		listener: lis,
@@ -37,7 +37,7 @@ func (s *Server) RegisterLuaHTTPServer(addr string) (chan *libs.HTTPTuple, error
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.luaRunWg.Add(1)
 		defer s.luaRunWg.Done()
-		tuple := libs.NewHTTPTuple(w, r)
+		tuple := builtin.NewHTTPTuple(w, r)
 		ch <- tuple
 		var err error
 		select {
