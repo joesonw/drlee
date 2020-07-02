@@ -50,9 +50,10 @@ type Server struct {
 	httpServerMappingMu *sync.RWMutex
 	httpServerMapping   map[string]*httpServer
 
-	reloadMu            *sync.Mutex
+	luaRunningMu        *sync.RWMutex
 	luaRunWg            *sync.WaitGroup
 	luaScript           string
+	luaInboxQueues      map[int]chan *RPCRequest
 	luaExitChannelGroup []chan struct{}
 	luaStates           map[int]*lua.LState
 	isLuaReloading      bool
@@ -90,9 +91,10 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 		httpServerMappingMu: &sync.RWMutex{},
 		httpServerMapping:   map[string]*httpServer{},
 
-		reloadMu:  &sync.Mutex{},
-		luaRunWg:  &sync.WaitGroup{},
-		luaStates: map[int]*lua.LState{},
+		luaRunningMu:   &sync.RWMutex{},
+		luaRunWg:       &sync.WaitGroup{},
+		luaStates:      map[int]*lua.LState{},
+		luaInboxQueues: map[int]chan *RPCRequest{},
 
 		luaOpenedFileMu: &sync.Mutex{},
 		luaOpenedFiles:  map[string]builtin.File{},

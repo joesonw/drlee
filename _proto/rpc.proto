@@ -17,6 +17,18 @@ message CallResponse {
     int64 TimestampNano = 2;
 }
 
+message BroadcastRequest {
+    string Name = 1;
+    bytes Body = 2;
+    int64 TimeoutMilliseconds = 3;
+    string NodeName = 4;
+}
+
+message BroadcastResponse {
+    repeated string IDLst = 1;
+    int64 TimestampNano = 2;
+}
+
 message ReplyRequest {
     string ID = 1;
     bytes Result = 2;
@@ -38,6 +50,8 @@ message DebugResponse {
 
 service RPC {
     rpc RPCCall (CallRequest) returns (CallResponse) {
+    }
+    rpc RPCBroadcast(BroadcastRequest) returns (BroadcastResponse) {
     }
     rpc RPCReply (ReplyRequest) returns (ReplyResponse) {
     }

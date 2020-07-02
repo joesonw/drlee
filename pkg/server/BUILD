@@ -20,7 +20,6 @@ go_library(
         "rpc.go",
         "rpc_reply.go",
         "server.go",
-        "shell.go",
     ],
     importpath = "github.com/joesonw/drlee/pkg/server",
     visibility = ["//visibility:public"],

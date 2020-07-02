@@ -38,6 +38,31 @@ func (s *Server) RPCCall(ctx context.Context, req *proto.CallRequest) (res *prot
 	return
 }
 
+func (s *Server) RPCBroadcast(ctx context.Context, req *proto.BroadcastRequest) (res *proto.BroadcastResponse, err error) {
+	res = &proto.BroadcastResponse{
+		TimestampNano: time.Now().UnixNano(),
+	}
+
+	s.luaRunningMu.RLock()
+	for _, q := range s.luaInboxQueues {
+		call := &RPCRequest{
+			ID:        uuid.NewV4().String(),
+			Name:      req.Name,
+			Body:      req.Body[:],
+			Timestamp: time.Now(),
+			Timeout:   time.Millisecond * time.Duration(req.TimeoutMilliseconds),
+			NodeName:  req.NodeName,
+		}
+		s.logger.Sugar().Debugf("received RPCBroadcast [%s] '%s' from node (%s)", call.ID, req.NodeName, req.NodeName)
+		res.IDLst = append(res.IDLst, call.ID)
+		q <- call
+	}
+
+	s.luaRunningMu.RUnlock()
+
+	return
+}
+
 func (s *Server) RPCReply(ctx context.Context, req *proto.ReplyRequest) (res *proto.ReplyResponse, err error) {
 	res = &proto.ReplyResponse{}
 	s.logger.Sugar().Debugf("received RPCReply [%s]", req.ID)

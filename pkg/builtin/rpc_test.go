@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -10,9 +11,10 @@ import (
 )
 
 type testRPC struct {
-	methods map[string]bool
-	ch      chan *RPCRequest
-	call    func(name string, body []byte) ([]byte, error)
+	methods   map[string]bool
+	ch        chan *RPCRequest
+	call      func(name string, body []byte) ([]byte, error)
+	broadcast func(name string, body []byte) []RPCBroadcastResult
 }
 
 func (r *testRPC) LRPCRegister(ctx context.Context, name string) (chan *RPCRequest, error) {
@@ -22,6 +24,10 @@ func (r *testRPC) LRPCRegister(ctx context.Context, name string) (chan *RPCReque
 
 func (r *testRPC) LRPCCall(ctx context.Context, timeout time.Duration, name string, body []byte) ([]byte, error) {
 	return r.call(name, body)
+}
+
+func (r *testRPC) LRPCBroadcast(ctx context.Context, timeout time.Duration, name string, body []byte) []RPCBroadcastResult {
+	return r.broadcast(name, body)
 }
 
 var _ = Describe("RPC", func() {
@@ -72,6 +78,51 @@ var _ = Describe("RPC", func() {
 			end)
 			`,
 			func(L *lua.LState) {
+				OpenRPC(L, &Env{
+					RPC: r,
+				})
+			})
+		call := <-callCh
+		Expect(call.name).To(Equal("test"))
+		Expect(string(call.body)).To(Equal("\"body\""))
+	})
+
+	It("should broadcast", func() {
+		type callTuple struct {
+			name string
+			body []byte
+		}
+		callCh := make(chan callTuple, 1)
+		r := &testRPC{
+			broadcast: func(name string, body []byte) []RPCBroadcastResult {
+				callCh <- callTuple{name, body}
+				return []RPCBroadcastResult{
+					{
+						Body: []byte("\"ok1\""),
+					},
+					{
+						Body: []byte("\"ok2\""),
+					},
+					{
+						Error: errors.New("error"),
+					},
+				}
+			},
+		}
+
+		RunAsyncTest(`
+			rpc_broadcast("test", "body", function(res)
+				assert(table.getn(res) == 3, "length")
+				assert(res[1].body == "ok1", "1")
+				assert(res[1].error == nil, "1")
+				assert(res[2].body == "ok2", "2")
+				assert(res[2].error == nil, "2")
+				assert(res[3].error == "error", "3")
+				resolve()
+			end)
+			`,
+			func(L *lua.LState) {
+				lua.OpenTable(L)
 				OpenRPC(L, &Env{
 					RPC: r,
 				})

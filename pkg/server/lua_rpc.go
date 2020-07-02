@@ -125,6 +125,99 @@ func (s *Server) LRPCCall(ctx context.Context, timeout time.Duration, name strin
 	}
 }
 
+func (s *Server) LRPCBroadcast(ctx context.Context, timeout time.Duration, name string, body []byte) []builtin.RPCBroadcastResult {
+	if timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	var resultSet []builtin.RPCBroadcastResult
+
+	s.localServicesMu.RLock()
+	_, hasLocal := s.localServices[name]
+	s.localServicesMu.RUnlock()
+	if hasLocal {
+		res, err := s.CallRPC(ctx, name, body)
+		resultSet = append(resultSet, builtin.RPCBroadcastResult{
+			Body:  res,
+			Error: err,
+		})
+	}
+
+	s.servicesMu.RLock()
+	group, ok := s.services[name]
+	if !ok {
+		s.servicesMu.RUnlock()
+		return resultSet
+	}
+
+	callMap := map[string]chan *RPCResponse{}
+
+	for nodeName := range group {
+		rpc := s.getRemoteRPC(nodeName)
+		if rpc == nil {
+			resultSet = append(resultSet, builtin.RPCBroadcastResult{
+				Error: fmt.Errorf("service \"%s\" is not registered in cluster", name),
+			})
+			continue
+		}
+
+		res, err := rpc.RPCBroadcast(ctx, &proto.BroadcastRequest{
+			Name:                name,
+			Body:                body,
+			TimeoutMilliseconds: timeout.Milliseconds(),
+			NodeName:            s.members.LocalNode().Name,
+		})
+		if err != nil {
+			resultSet = append(resultSet, builtin.RPCBroadcastResult{
+				Error: err,
+			})
+			continue
+		}
+
+		s.replyInboxMu.Lock()
+		for _, id := range res.IDLst {
+			ch := make(chan *RPCResponse, 1)
+			s.replyInbox[id] = ch
+			callMap[id] = ch
+		}
+		s.replyInboxMu.Unlock()
+	}
+
+	s.servicesMu.RUnlock()
+	s.endpointMu.RLock()
+
+	done := make(chan struct{}, 1)
+	go func() {
+		for id, ch := range callMap {
+			res := <-ch
+			if res.IsError {
+				resultSet = append(resultSet, builtin.RPCBroadcastResult{
+					Error: errors.New(string(res.Result)),
+				})
+			} else {
+				resultSet = append(resultSet, builtin.RPCBroadcastResult{
+					Body: res.Result,
+				})
+			}
+			delete(callMap, id)
+		}
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-ctx.Done():
+		for id := range callMap {
+			s.replyInboxMu.Lock()
+			delete(s.replyInbox, id)
+			s.replyInboxMu.Unlock()
+		}
+	case <-done:
+	}
+	return resultSet
+}
+
 func (s *Server) CallRPC(ctx context.Context, name string, body []byte) ([]byte, error) {
 	req := builtin.NewRPCRequest(name, body)
 	s.servicesRequestCh <- req

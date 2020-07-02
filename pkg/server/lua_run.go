@@ -37,8 +37,8 @@ func (f *luaFile) Close() error {
 }
 
 func (s *Server) LoadLua(ctx context.Context, path string) error {
-	s.reloadMu.Lock()
-	defer s.reloadMu.Unlock()
+	s.luaRunningMu.Lock()
+	defer s.luaRunningMu.Unlock()
 	s.luaScript = path
 
 	name := filepath.Base(path)
@@ -53,6 +53,7 @@ func (s *Server) LoadLua(ctx context.Context, path string) error {
 	}
 
 	for i := 0; i < s.config.Concurrency; i++ {
+		s.luaInboxQueues[i] = make(chan *RPCRequest, 128)
 		s.bootstrapScript(ctx, filepath.Dir(path), name, i, proto)
 	}
 
@@ -64,8 +65,8 @@ func (s *Server) LoadLua(ctx context.Context, path string) error {
 }
 
 func (s *Server) StopLua(timeout time.Duration) error {
-	s.reloadMu.Lock()
-	defer s.reloadMu.Unlock()
+	s.luaRunningMu.Lock()
+	defer s.luaRunningMu.Unlock()
 	s.isLuaReloading = true
 	defer func() {
 		s.isLuaReloading = false
@@ -116,6 +117,7 @@ func (s *Server) listenRPCForScript(id int) {
 	logger := s.logger.Named(fmt.Sprintf("lua-rpc-%d", id))
 	logger.Info("lua rpc worker started")
 	ch := s.inboxQueue.ReadChan()
+	queue := s.luaInboxQueues[id]
 	exit := make(chan struct{}, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
 	for {
@@ -125,45 +127,54 @@ func (s *Server) listenRPCForScript(id int) {
 			return
 		case data := <-ch:
 			{
-				s.luaRunWg.Add(1)
 				req := &RPCRequest{}
 				if err := utils.UnmarshalGOB(data, req); err != nil {
 					logger.Error("unable to unmarshal rpc request", zap.Error(err))
 					s.luaRunWg.Done()
 					continue
 				}
-
-				logger.Sugar().Debugf("lua received rpc %s", req.ID)
-
-				result, err := s.CallRPC(context.TODO(), req.Name, req.Body)
-				res := &RPCResponse{
-					ID:        req.ID,
-					Timestamp: time.Now(),
-					NodeName:  req.NodeName,
-				}
-				if err != nil {
-					res.IsError = true
-					res.Result = []byte(err.Error())
-				} else {
-					res.Result = result
-				}
-
-				logger.Sugar().Debugf("lua finished rpc %s (ok: %v)", req.ID, !res.IsError)
-
-				b, err := utils.MarshalGOB(res)
-				if err != nil {
-					logger.Error("unable to marshal rpc response", zap.Error(err))
-					s.luaRunWg.Done()
-					continue
-				}
-
-				if err := s.outboxQueue.Put(b); err != nil {
-					logger.Fatal("unable to write to outbox queue", zap.Error(err))
-				}
-				s.luaRunWg.Done()
+				s.processRPC(req, logger)
+				continue
+			}
+		case req := <-queue:
+			{
+				s.processRPC(req, logger)
+				continue
 			}
 		}
 	}
+}
+
+func (s *Server) processRPC(req *RPCRequest, logger *zap.Logger) {
+	s.luaRunWg.Add(1)
+
+	logger.Sugar().Debugf("lua received rpc %s", req.ID)
+	result, err := s.CallRPC(context.TODO(), req.Name, req.Body)
+	res := &RPCResponse{
+		ID:        req.ID,
+		Timestamp: time.Now(),
+		NodeName:  req.NodeName,
+	}
+	if err != nil {
+		res.IsError = true
+		res.Result = []byte(err.Error())
+	} else {
+		res.Result = result
+	}
+
+	logger.Sugar().Debugf("lua finished rpc %s (ok: %v)", req.ID, !res.IsError)
+
+	b, err := utils.MarshalGOB(res)
+	if err != nil {
+		logger.Error("unable to marshal rpc response", zap.Error(err))
+		s.luaRunWg.Done()
+		return
+	}
+
+	if err := s.outboxQueue.Put(b); err != nil {
+		logger.Fatal("unable to write to outbox queue", zap.Error(err))
+	}
+	s.luaRunWg.Done()
 }
 
 func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, proto *lua.FunctionProto) {

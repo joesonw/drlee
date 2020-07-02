@@ -85,14 +85,21 @@ func (req *RPCRequest) reply(L *lua.LState) int {
 	return 0
 }
 
+type RPCBroadcastResult struct {
+	Body  []byte
+	Error error
+}
+
 type RPC interface {
 	LRPCRegister(ctx context.Context, name string) (chan *RPCRequest, error)
 	LRPCCall(ctx context.Context, timeout time.Duration, name string, body []byte) ([]byte, error)
+	LRPCBroadcast(ctx context.Context, timeout time.Duration, name string, body []byte) []RPCBroadcastResult
 }
 
 var registryFuncs = map[string]lua.LGFunction{
-	"rpc_register": lRPCRegister,
-	"rpc_call":     lRPCCall,
+	"rpc_register":  lRPCRegister,
+	"rpc_call":      lRPCCall,
+	"rpc_broadcast": lRPCBroadcast,
 }
 
 type lRegistry struct {
@@ -195,7 +202,6 @@ func lRPCCall(L *lua.LState) int {
 	go func() {
 		res, err := registry.registry.LRPCCall(ctx, timeout, name, body)
 		if err != nil {
-			L.SetContext(ctx)
 			cb.Reject(L, Error(err))
 		} else {
 			result, err := JSONDecode(L, res)
@@ -210,10 +216,10 @@ func lRPCCall(L *lua.LState) int {
 	return 1
 }
 
-func lRPCCall(L *lua.LState) int {
+func lRPCBroadcast(L *lua.LState) int {
 	registry := upRegistry(L)
 	if L.GetTop() < 2 {
-		L.RaiseError("rpc_call(name, fn, timeout?, cb) requires at least two arguments")
+		L.RaiseError("rpc_broadcast(name, fn, timeout?, cb) requires at least two arguments")
 	}
 	ctx := L.Context()
 	var timeout time.Duration
@@ -233,18 +239,23 @@ func lRPCCall(L *lua.LState) int {
 
 	cb := NewCallback(cbValue)
 	go func() {
-		res, err := registry.registry.LRPCCall(ctx, timeout, name, body)
-		if err != nil {
-			L.SetContext(ctx)
-			cb.Reject(L, Error(err))
-		} else {
-			result, err := JSONDecode(L, res)
-			if err != nil {
-				cb.Reject(L, Error(err))
+		resultSet := registry.registry.LRPCBroadcast(ctx, timeout, name, body)
+		table := L.NewTable()
+		for _, res := range resultSet {
+			result := L.NewTable()
+			if res.Body != nil {
+				body, err := JSONDecode(L, res.Body)
+				if err != nil {
+					result.RawSetString("error", Error(err))
+				} else {
+					result.RawSetString("body", body)
+				}
 			} else {
-				cb.Resolve(L, result)
+				result.RawSetString("error", Error(res.Error))
 			}
+			table.Append(result)
 		}
+		cb.CallP(L, table)
 	}()
 
 	return 1
