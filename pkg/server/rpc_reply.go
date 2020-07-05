@@ -12,12 +12,13 @@ import (
 )
 
 type RPCRequest struct {
-	ID        string
-	Name      string
-	Body      []byte
-	Timestamp time.Time
-	Timeout   time.Duration
-	NodeName  string
+	ID         string
+	Name       string
+	Body       []byte
+	Timestamp  time.Time
+	Timeout    time.Duration
+	NodeName   string
+	IsLoopBack bool
 }
 
 type RPCResponse struct {

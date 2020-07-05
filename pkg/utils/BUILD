@@ -4,9 +4,13 @@ go_library(
     name = "go_default_library",
     srcs = [
         "gob.go",
+        "lua.go",
         "pprof.go",
     ],
     importpath = "github.com/joesonw/drlee/pkg/utils",
     visibility = ["//visibility:public"],
-    deps = ["@org_uber_go_zap//:go_default_library"],
+    deps = [
+        "@com_github_yuin_gopher_lua//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+    ],
 )

@@ -7,8 +7,11 @@ import (
 	"math/rand"
 	"time"
 
+	coreRPC "github.com/joesonw/drlee/pkg/core/rpc"
+
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/hashicorp/memberlist"
-	"github.com/joesonw/drlee/pkg/builtin"
 	"github.com/joesonw/drlee/proto"
 )
 
@@ -23,43 +26,18 @@ func (b RegistryBroadcast) Invalidates(other memberlist.Broadcast) bool {
 
 func (b RegistryBroadcast) Finished() {}
 
-func (s *Server) LRPCRegister(ctx context.Context, name string) (chan *builtin.RPCRequest, error) {
-	s.localServicesMu.Lock()
-	s.localServices[name] = 1
-	s.localServicesMu.Unlock()
-	return s.servicesRequestCh, nil
-}
-
-func (s *Server) StartRegistry(ctx context.Context) error {
-	s.localServicesMu.RLock()
-	defer s.localServicesMu.RUnlock()
-
-	for name, weight := range s.localServices {
-		nodeName := s.members.LocalNode().Name
-		s.broadcasts.QueueBroadcast(&RegistryBroadcast{
-			NodeName:  nodeName,
-			Timestamp: time.Now(),
-			Name:      name,
-			Weight:    weight,
-		})
-		s.logger.Info(fmt.Sprintf("broadcasted service \"%s\"", name))
-	}
-
-	s.logger.Info("lua rpc started")
-	return nil
-}
-
-func (s *Server) LRPCCall(ctx context.Context, timeout time.Duration, name string, body []byte) ([]byte, error) {
-	if timeout != 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
+func (s *Server) luaRPCCall(ctx context.Context, name string, body []byte) ([]byte, error) {
 	s.localServicesMu.RLock()
 	_, hasLocal := s.localServices[name]
 	s.localServicesMu.RUnlock()
 	if hasLocal {
-		return s.CallRPC(ctx, name, body)
+		return s.callLuaRPCMethod(ctx, &RPCRequest{
+			ID:         uuid.NewV4().String(),
+			Name:       name,
+			Body:       body,
+			Timestamp:  time.Now(),
+			IsLoopBack: true,
+		})
 	}
 
 	s.servicesMu.RLock()
@@ -84,147 +62,112 @@ func (s *Server) LRPCCall(ctx context.Context, timeout time.Duration, name strin
 			break
 		}
 	}
-
 	s.servicesMu.RUnlock()
-	s.endpointMu.RLock()
 
 	rpc := s.getRemoteRPC(nodeName)
 	if rpc == nil {
 		return nil, fmt.Errorf("service \"%s\" is not registered in cluster", name)
 	}
 
-	res, err := rpc.RPCCall(ctx, &proto.CallRequest{
-		Name:                name,
-		Body:                body,
-		TimeoutMilliseconds: timeout.Milliseconds(),
-		NodeName:            s.members.LocalNode().Name,
+	callRes, err := rpc.RPCCall(ctx, &proto.CallRequest{
+		Name:     name,
+		Body:     body,
+		NodeName: s.members.LocalNode().Name,
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	ch := make(chan *RPCResponse, 1)
-	defer func() {
-		close(ch)
-	}()
-	s.replyInboxMu.Lock()
-	s.replyInbox[res.ID] = ch
-	s.replyInboxMu.Unlock()
-
-	select {
-	case <-ctx.Done():
-		s.replyInboxMu.Lock()
-		delete(s.replyInbox, res.ID)
-		s.replyInboxMu.Unlock()
-		return nil, ctx.Err()
-	case r := <-ch:
-		if r.IsError {
-			return nil, errors.New(string(r.Result))
-		}
-		return r.Result, nil
+	ch := s.replybox.Watch(callRes.ID)
+	res := <-ch
+	if res.IsError {
+		return nil, errors.New(string(res.Result))
 	}
+	return res.Result, nil
 }
 
-func (s *Server) LRPCBroadcast(ctx context.Context, timeout time.Duration, name string, body []byte) []builtin.RPCBroadcastResult {
-	if timeout != 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
-
-	var resultSet []builtin.RPCBroadcastResult
+func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) []coreRPC.Response {
+	var responseIDList []string
 
 	s.localServicesMu.RLock()
 	_, hasLocal := s.localServices[name]
 	s.localServicesMu.RUnlock()
 	if hasLocal {
-		res, err := s.CallRPC(ctx, name, body)
-		resultSet = append(resultSet, builtin.RPCBroadcastResult{
-			Body:  res,
-			Error: err,
+		ids := s.inbox.Broadcast(&RPCRequest{
+			ID:         uuid.NewV4().String(),
+			Name:       name,
+			Body:       body,
+			Timestamp:  time.Now(),
+			IsLoopBack: true,
 		})
+		responseIDList = append(responseIDList, ids...)
 	}
 
 	s.servicesMu.RLock()
 	group, ok := s.services[name]
-	if !ok {
-		s.servicesMu.RUnlock()
-		return resultSet
-	}
+	s.servicesMu.RUnlock()
 
-	callMap := map[string]chan *RPCResponse{}
+	if ok {
+		for nodeName := range group {
+			rpc := s.getRemoteRPC(nodeName)
+			if rpc == nil {
+				id := uuid.NewV4().String()
+				responseIDList = append(responseIDList, id)
+				s.replybox.Insert(RPCResponse{
+					ID:        id,
+					Result:    []byte(fmt.Sprintf("service \"%s\" is not registered in cluster", name)),
+					Timestamp: time.Now(),
+					IsError:   true,
+				})
+				continue
+			}
 
-	for nodeName := range group {
-		rpc := s.getRemoteRPC(nodeName)
-		if rpc == nil {
-			resultSet = append(resultSet, builtin.RPCBroadcastResult{
-				Error: fmt.Errorf("service \"%s\" is not registered in cluster", name),
+			res, err := rpc.RPCBroadcast(ctx, &proto.BroadcastRequest{
+				Name:     name,
+				Body:     body,
+				NodeName: s.members.LocalNode().Name,
 			})
-			continue
+			if err != nil {
+				id := uuid.NewV4().String()
+				responseIDList = append(responseIDList, id)
+				s.replybox.Insert(RPCResponse{
+					ID:        id,
+					Result:    []byte(err.Error()),
+					Timestamp: time.Now(),
+					IsError:   true,
+				})
+				continue
+			}
+			responseIDList = append(responseIDList, res.IDLst...)
 		}
-
-		res, err := rpc.RPCBroadcast(ctx, &proto.BroadcastRequest{
-			Name:                name,
-			Body:                body,
-			TimeoutMilliseconds: timeout.Milliseconds(),
-			NodeName:            s.members.LocalNode().Name,
-		})
-		if err != nil {
-			resultSet = append(resultSet, builtin.RPCBroadcastResult{
-				Error: err,
-			})
-			continue
-		}
-
-		s.replyInboxMu.Lock()
-		for _, id := range res.IDLst {
-			ch := make(chan *RPCResponse, 1)
-			s.replyInbox[id] = ch
-			callMap[id] = ch
-		}
-		s.replyInboxMu.Unlock()
 	}
 
 	s.servicesMu.RUnlock()
 	s.endpointMu.RLock()
 
-	done := make(chan struct{}, 1)
-	go func() {
-		for id, ch := range callMap {
-			res := <-ch
-			if res.IsError {
-				resultSet = append(resultSet, builtin.RPCBroadcastResult{
-					Error: errors.New(string(res.Result)),
-				})
-			} else {
-				resultSet = append(resultSet, builtin.RPCBroadcastResult{
-					Body: res.Result,
-				})
-			}
-			delete(callMap, id)
+	var result []coreRPC.Response
+	for _, id := range responseIDList {
+		res := <-s.replybox.Watch(id)
+		if res.IsError {
+			result = append(result, coreRPC.Response{
+				Error: errors.New(string(res.Result)),
+			})
+		} else {
+			result = append(result, coreRPC.Response{
+				Body: res.Result,
+			})
 		}
-		done <- struct{}{}
-	}()
-
-	select {
-	case <-ctx.Done():
-		for id := range callMap {
-			s.replyInboxMu.Lock()
-			delete(s.replyInbox, id)
-			s.replyInboxMu.Unlock()
-		}
-	case <-done:
 	}
-	return resultSet
+	return result
 }
 
-func (s *Server) CallRPC(ctx context.Context, name string, body []byte) ([]byte, error) {
-	req := builtin.NewRPCRequest(name, body)
-	s.servicesRequestCh <- req
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-req.Done():
-		return req.Result(), req.Err()
+func (s *Server) callLuaRPCMethod(ctx context.Context, req *RPCRequest) ([]byte, error) {
+	ch := s.replybox.Watch(req.ID)
+	if err := s.inbox.Put(req); err != nil {
+		return nil, err
 	}
+	res := <-ch
+	if res.IsError {
+		return nil, errors.New(string(res.Result))
+	}
+	return res.Result, nil
 }

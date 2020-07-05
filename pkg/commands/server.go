@@ -140,9 +140,6 @@ func (s *ServerCommand) Build(ctx context.Context) *cobra.Command {
 				logger.Fatal("unable to run lua", zap.Error(err))
 			}
 			logger.Info("lua script loaded")
-			if err := srv.StartRegistry(ctx); err != nil {
-				logger.Fatal("unable to start registry", zap.Error(err))
-			}
 
 			srv.StartReplyWorkers()
 			logger.Info("services registered")

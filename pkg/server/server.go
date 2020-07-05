@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/hashicorp/memberlist"
-	"github.com/joesonw/drlee/pkg/builtin"
 	"github.com/joesonw/drlee/proto"
 	diskqueue "github.com/nsqio/go-diskqueue"
-	lua "github.com/yuin/gopher-lua"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -30,7 +31,6 @@ type Server struct {
 	meta        Meta
 	members     *memberlist.Memberlist
 	broadcasts  *memberlist.TransmitLimitedQueue
-	inboxQueue  diskqueue.Interface
 	outboxQueue diskqueue.Interface
 	queueCond   *sync.Cond
 	logger      *zap.Logger
@@ -43,23 +43,16 @@ type Server struct {
 	servicesMu      *sync.RWMutex
 	localServices   map[string]float64
 	localServicesMu *sync.RWMutex
-	replyInbox      map[string]chan *RPCResponse
-	replyInboxMu    *sync.RWMutex
 
-	servicesRequestCh   chan *builtin.RPCRequest
-	httpServerMappingMu *sync.RWMutex
-	httpServerMapping   map[string]*httpServer
+	replybox  *ReplyBox
+	inbox     *Inbox
+	listeners *ListenerManager
 
-	luaRunningMu        *sync.RWMutex
 	luaRunWg            *sync.WaitGroup
 	luaScript           string
-	luaInboxQueues      map[int]chan *RPCRequest
-	luaExitChannelGroup []chan struct{}
-	luaStates           map[int]*lua.LState
-	isLuaReloading      bool
+	luaExitChannelGroup []chan time.Duration
 
-	luaOpenedFileMu *sync.Mutex
-	luaOpenedFiles  map[string]builtin.File
+	isLuaReloading *atomic.Bool
 }
 
 // New creates an new Server
@@ -72,7 +65,6 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 		meta: Meta{
 			RPCPort: config.RPC.Port,
 		},
-		inboxQueue:  inboxQueue,
 		outboxQueue: outboxQueue,
 		logger:      logger,
 
@@ -84,20 +76,13 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 		servicesMu:      &sync.RWMutex{},
 		localServices:   map[string]float64{},
 		localServicesMu: &sync.RWMutex{},
-		replyInbox:      map[string]chan *RPCResponse{},
-		replyInboxMu:    &sync.RWMutex{},
 
-		servicesRequestCh:   make(chan *builtin.RPCRequest, 1024),
-		httpServerMappingMu: &sync.RWMutex{},
-		httpServerMapping:   map[string]*httpServer{},
+		replybox:  newReplyBox(),
+		inbox:     newInbox(inboxQueue),
+		listeners: newListenerManager(),
 
-		luaRunningMu:   &sync.RWMutex{},
 		luaRunWg:       &sync.WaitGroup{},
-		luaStates:      map[int]*lua.LState{},
-		luaInboxQueues: map[int]chan *RPCRequest{},
-
-		luaOpenedFileMu: &sync.Mutex{},
-		luaOpenedFiles:  map[string]builtin.File{},
+		isLuaReloading: atomic.NewBool(false),
 	}
 }
 

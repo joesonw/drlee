@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/joesonw/drlee/proto"
 )
 
@@ -33,7 +35,13 @@ func (s *Server) RPCDebug(ctx context.Context, req *proto.DebugRequest) (res *pr
 			}
 
 			var result []byte
-			result, err = s.CallRPC(ctx, call.Name, call.Body)
+			result, err = s.callLuaRPCMethod(ctx, &RPCRequest{
+				ID:         uuid.NewV4().String(),
+				Name:       call.Name,
+				Body:       call.Body,
+				Timestamp:  time.Now(),
+				IsLoopBack: true,
+			})
 			if err != nil {
 				return
 			}

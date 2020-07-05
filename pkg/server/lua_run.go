@@ -4,41 +4,39 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	redis "github.com/go-redis/redis/v8"
-	"github.com/joesonw/drlee/pkg/builtin"
-	"github.com/joesonw/drlee/pkg/lib"
+	"github.com/gobuffalo/packr"
+	"github.com/joesonw/drlee/pkg/core"
+	coreFS "github.com/joesonw/drlee/pkg/core/fs"
+	coreHTTP "github.com/joesonw/drlee/pkg/core/http"
+	coreJSON "github.com/joesonw/drlee/pkg/core/json"
+	coreLog "github.com/joesonw/drlee/pkg/core/log"
+	coreNetwork "github.com/joesonw/drlee/pkg/core/network"
+	coreRedis "github.com/joesonw/drlee/pkg/core/redis"
+	coreRPC "github.com/joesonw/drlee/pkg/core/rpc"
+	coreSQL "github.com/joesonw/drlee/pkg/core/sql"
+	coreTime "github.com/joesonw/drlee/pkg/core/time"
+	"github.com/joesonw/drlee/pkg/runtime"
 	"github.com/joesonw/drlee/pkg/utils"
-	uuid "github.com/satori/go.uuid"
 	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
 	"go.uber.org/zap"
 )
 
-type luaFile struct {
-	id string
-	s  *Server
-	*os.File
-}
-
-func (f *luaFile) Close() error {
-	err := f.File.Close()
-	f.s.luaOpenedFileMu.Lock()
-	delete(f.s.luaOpenedFiles, f.id)
-	f.s.luaOpenedFileMu.Unlock()
-	return err
-}
-
 func (s *Server) LoadLua(ctx context.Context, path string) error {
-	s.luaRunningMu.Lock()
-	defer s.luaRunningMu.Unlock()
+	if !s.isLuaReloading.CAS(false, true) {
+		return errors.New("lua is reloading")
+	}
+	defer s.isLuaReloading.Store(false)
 	s.luaScript = path
 
 	name := filepath.Base(path)
@@ -53,26 +51,30 @@ func (s *Server) LoadLua(ctx context.Context, path string) error {
 	}
 
 	for i := 0; i < s.config.Concurrency; i++ {
-		s.luaInboxQueues[i] = make(chan *RPCRequest, 128)
-		s.bootstrapScript(ctx, filepath.Dir(path), name, i, proto)
-	}
-
-	for i := 0; i < s.config.Concurrency; i++ {
-		go s.listenRPCForScript(i)
+		L := lua.NewState(lua.Options{})
+		L.SetContext(context.Background())
+		box := runtime.New()
+		globalSrc, err := box.FindString("global.lua")
+		if err != nil {
+			return err
+		}
+		err = L.DoString(globalSrc)
+		if err != nil {
+			return err
+		}
+		go s.runLua(L, box, filepath.Dir(path), name, i, proto)
 	}
 
 	return nil
 }
 
 func (s *Server) StopLua(timeout time.Duration) error {
-	s.luaRunningMu.Lock()
-	defer s.luaRunningMu.Unlock()
-	s.isLuaReloading = true
-	defer func() {
-		s.isLuaReloading = false
-	}()
+	if s.isLuaReloading.Load() {
+		return errors.New("lua is reloading")
+	}
+
 	for _, c := range s.luaExitChannelGroup {
-		c <- struct{}{}
+		c <- timeout
 	}
 
 	wgChannel := make(chan struct{}, 1)
@@ -88,162 +90,135 @@ func (s *Server) StopLua(timeout time.Duration) error {
 	}
 	timer.Stop()
 
-	s.httpServerMappingMu.Lock()
-	for _, hs := range s.httpServerMapping {
-		hs.listener.Close()
-	}
-	s.httpServerMapping = map[string]*httpServer{}
-	s.httpServerMappingMu.Unlock()
+	s.listeners.Reset()
+	s.inbox.Reset()
 	s.luaExitChannelGroup = nil
-
-	for _, L := range s.luaStates {
-		L.Close()
+	s.localServicesMu.RLock()
+	for name := range s.localServices {
+		nodeName := s.members.LocalNode().Name
+		s.broadcasts.QueueBroadcast(&RegistryBroadcast{
+			NodeName:  nodeName,
+			Timestamp: time.Now(),
+			Name:      name,
+			IsDeleted: true,
+		})
 	}
-	s.luaStates = map[int]*lua.LState{}
+	s.localServicesMu.RUnlock()
 
-	s.luaOpenedFileMu.Lock()
-	for _, f := range s.luaOpenedFiles {
-		f.Close()
-	}
-	s.luaOpenedFiles = map[string]builtin.File{}
-	s.luaOpenedFileMu.Unlock()
-
-	close(s.servicesRequestCh)
-	s.servicesRequestCh = make(chan *builtin.RPCRequest, 1024)
 	return nil
 }
 
-func (s *Server) listenRPCForScript(id int) {
-	logger := s.logger.Named(fmt.Sprintf("lua-rpc-%d", id))
-	logger.Info("lua rpc worker started")
-	ch := s.inboxQueue.ReadChan()
-	queue := s.luaInboxQueues[id]
-	exit := make(chan struct{}, 1)
-	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
-	for {
-		select {
-		case <-exit:
-			logger.Info("exit upon request")
-			return
-		case data := <-ch:
-			{
-				req := &RPCRequest{}
-				if err := utils.UnmarshalGOB(data, req); err != nil {
-					logger.Error("unable to unmarshal rpc request", zap.Error(err))
-					s.luaRunWg.Done()
-					continue
-				}
-				s.processRPC(req, logger)
-				continue
-			}
-		case req := <-queue:
-			{
-				s.processRPC(req, logger)
-				continue
-			}
-		}
-	}
-}
-
-func (s *Server) processRPC(req *RPCRequest, logger *zap.Logger) {
-	s.luaRunWg.Add(1)
-
-	logger.Sugar().Debugf("lua received rpc %s", req.ID)
-	result, err := s.CallRPC(context.TODO(), req.Name, req.Body)
-	res := &RPCResponse{
-		ID:        req.ID,
-		Timestamp: time.Now(),
-		NodeName:  req.NodeName,
-	}
-	if err != nil {
-		res.IsError = true
-		res.Result = []byte(err.Error())
-	} else {
-		res.Result = result
-	}
-
-	logger.Sugar().Debugf("lua finished rpc %s (ok: %v)", req.ID, !res.IsError)
-
-	b, err := utils.MarshalGOB(res)
-	if err != nil {
-		logger.Error("unable to marshal rpc response", zap.Error(err))
-		s.luaRunWg.Done()
-		return
-	}
-
-	if err := s.outboxQueue.Put(b); err != nil {
-		logger.Fatal("unable to write to outbox queue", zap.Error(err))
-	}
-	s.luaRunWg.Done()
-}
-
-func (s *Server) bootstrapScript(ctx context.Context, dir, name string, id int, proto *lua.FunctionProto) {
+func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, proto *lua.FunctionProto) {
 	logger := s.logger.Named(fmt.Sprintf("lua-worker-%s-%d", name, id))
-	L := lua.NewState(lua.Options{
-		SkipOpenLibs: true,
-	})
-	L.SetContext(context.Background())
-	exit := make(chan struct{}, 1)
+	exit := make(chan time.Duration, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
+	inboxConsumer := s.inbox.NewConsumer(id)
 
-	stack := builtin.NewAsyncStack(L, 1024, func(err error) {
-		L.RaiseError(err.Error())
-	})
-
-	mu := &sync.Mutex{}
-	mu.Lock()
-	builtin.OpenAll(L, &builtin.Env{
-		RPC:           s,
-		Logger:        logger,
-		OpenSQL:       sql.Open,
-		HttpClient:    http.DefaultClient,
-		GlobalFuncs:   map[string]*builtin.GlobalFunc{},
-		Globals:       map[string]lua.LValue{},
-		ServerStartMU: mu,
-		Dir:           dir,
-		ServeHTTP:     s.RegisterLuaHTTPServer,
-		AsyncStack:    stack,
-		RedisNewClient: func(options *redis.Options) builtin.RedisDoable {
-			return redis.NewClient(options)
+	ec := core.NewExecutionContext(L, core.Config{
+		OnError: func(err error) {
+			logger.Error("uncaught lua error", zap.Error(err))
 		},
-		OpenFile: func(name string, flag, perm int) (builtin.File, error) {
-			f, err := os.OpenFile(name, flag, os.FileMode(perm))
-			if err != nil {
-				return nil, err
+		LuaStackSize:      128,
+		GoStackSize:       256,
+		GoCallConcurrency: 4,
+	})
+	ec.Start()
+
+	coreFS.Open(L, ec, func(name string, flag, perm int) (coreFS.File, error) {
+		return os.OpenFile(name, flag, os.FileMode(perm))
+	}, box)
+	coreHTTP.Open(L, ec, box, &http.Client{}, func(addr string) (net.Listener, error) {
+		return s.listeners.Listen("tcp", addr)
+	})
+	coreJSON.Open(L)
+	coreLog.Open(L, logger)
+	coreNetwork.Open(L, ec, func(network, addr string) (net.Listener, error) {
+		return s.listeners.Listen(network, addr)
+	}, net.Dial)
+	coreRedis.Open(L, ec, func(options *redis.Options) coreRedis.Doable {
+		return redis.NewClient(options)
+	})
+	coreRPC.Open(L, ec, &coreRPC.Env{
+		Register: func(name string) {
+			s.localServicesMu.Lock()
+			s.localServices[name] = 1
+			s.localServicesMu.Unlock()
+		},
+		Call: func(ctx context.Context, req coreRPC.Request, cb func(coreRPC.Response)) {
+			go func() {
+				body, err := s.luaRPCCall(ctx, req.Name, req.Body)
+				cb(coreRPC.Response{
+					Body:  body,
+					Error: err,
+				})
+			}()
+		},
+		Broadcast: func(ctx context.Context, req coreRPC.Request, cb func([]coreRPC.Response)) {
+			go func() {
+				list := s.luaRPCBroadcast(ctx, req.Name, req.Body)
+				cb(list)
+			}()
+		},
+		Reply: func(id, nodeName string, isLoopBack bool, res coreRPC.Response) {
+			r := RPCResponse{
+				ID:        id,
+				Timestamp: time.Now(),
+				NodeName:  nodeName,
 			}
-			s.luaOpenedFileMu.Lock()
-			s.luaOpenedFiles[name] = f
-			s.luaOpenedFileMu.Unlock()
-			id := uuid.NewV4().String()
-			return &luaFile{
-				id:   id,
-				s:    s,
-				File: f,
-			}, nil
+			if res.Error != nil {
+				r.IsError = true
+				r.Result = []byte(res.Error.Error())
+			} else {
+				r.Result = res.Body
+			}
+
+			if isLoopBack {
+				s.replybox.Insert(r)
+				return
+			}
+
+			b, err := utils.MarshalGOB(&r)
+			if err != nil {
+				logger.Fatal("unable to marshal GOB", zap.Error(err))
+				return
+			}
+
+			if err := s.outboxQueue.Put(b); err != nil {
+				logger.Fatal("unable to put outbox queue", zap.Error(err))
+			}
+		},
+		ReadChan: func() <-chan coreRPC.Request {
+			return inboxConsumer
+		},
+		Start: func() {
+			for name, weight := range s.localServices {
+				nodeName := s.members.LocalNode().Name
+				s.broadcasts.QueueBroadcast(&RegistryBroadcast{
+					NodeName:  nodeName,
+					Timestamp: time.Now(),
+					Name:      name,
+					Weight:    weight,
+				})
+				logger.Info(fmt.Sprintf("broadcasted service \"%s\"", name))
+			}
+
+			logger.Info("lua rpc started")
 		},
 	})
-	if err := lib.Open(L); err != nil {
-		logger.Fatal("unable to load lua libs", zap.Error(err))
-	}
-
-	f := &lua.LFunction{
+	coreSQL.Open(L, ec, sql.Open)
+	coreTime.Open(L, ec, time.Now)
+	fn := &lua.LFunction{
 		IsG:       false,
 		Env:       L.Env,
 		Proto:     proto,
 		GFunction: nil,
 	}
-
-	L.Push(f)
+	L.Push(fn)
 	if err := L.PCall(0, lua.MultRet, nil); err != nil {
 		logger.Fatal("unable to run lua", zap.Error(err))
 	}
-	stack.Start()
-	go func() {
-		<-exit
-		stack.Stop()
-	}()
-	mu.Lock()
-	mu.Unlock()
-	s.luaStates[id] = L
 
+	<-exit
+	ec.Close()
+	L.Close()
 }
