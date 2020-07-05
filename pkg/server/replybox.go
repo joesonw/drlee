@@ -20,6 +20,7 @@ func newReplyBox() *ReplyBox {
 		deleteCh: make(chan string, 64),
 		insertCh: make(chan RPCResponse, 64),
 		watchCh:  make(chan replyBoxWatch, 64),
+		replies:  map[string]replyBoxWatch{},
 		watchMu:  &sync.RWMutex{},
 	}
 
@@ -75,6 +76,15 @@ func (b *ReplyBox) Watch(id string) chan RPCResponse {
 		ch: ch,
 	}
 	return ch
+}
+
+func (b *ReplyBox) Reset() {
+	b.watchMu.RLock()
+	for _, w := range b.replies {
+		close(w.ch)
+	}
+	b.watchMu.RUnlock()
+	b.replies = map[string]replyBoxWatch{}
 }
 
 func (b *ReplyBox) Delete(id string) {

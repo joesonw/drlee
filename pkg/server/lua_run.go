@@ -92,6 +92,7 @@ func (s *Server) StopLua(timeout time.Duration) error {
 
 	s.listeners.Reset()
 	s.inbox.Reset()
+	s.replybox.Reset()
 	s.luaExitChannelGroup = nil
 	s.localServicesMu.RLock()
 	for name := range s.localServices {
