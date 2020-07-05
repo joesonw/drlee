@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/joesonw/drlee/pkg/plugin"
+
 	"go.uber.org/atomic"
 
 	"github.com/hashicorp/memberlist"
@@ -34,6 +36,7 @@ type Server struct {
 	outboxQueue diskqueue.Interface
 	queueCond   *sync.Cond
 	logger      *zap.Logger
+	plugins     []plugin.Interface
 
 	deferredMembers func() *memberlist.Memberlist
 	endpoints       map[string]*grpc.ClientConn
@@ -56,7 +59,7 @@ type Server struct {
 }
 
 // New creates an new Server
-func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQueue diskqueue.Interface, outboxQueue diskqueue.Interface, logger *zap.Logger) *Server {
+func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQueue diskqueue.Interface, outboxQueue diskqueue.Interface, logger *zap.Logger, plugins []plugin.Interface) *Server {
 	if config.Concurrency < 1 {
 		config.Concurrency = 1
 	}
@@ -67,6 +70,7 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 		},
 		outboxQueue: outboxQueue,
 		logger:      logger,
+		plugins:     plugins,
 
 		deferredMembers: deferredMembers,
 		endpoints:       map[string]*grpc.ClientConn{},

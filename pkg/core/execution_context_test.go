@@ -51,6 +51,13 @@ var _ = Describe("ExecutionContext", func() {
 		ec.Call(Lua(fn, lua.LBool(false)))
 		<-ch
 
+		ch = make(chan struct{}, 1)
+		ec.Call(Scoped(func(L *lua.LState) error {
+			ch <- struct{}{}
+			return nil
+		}))
+		<-ch
+
 		ec.Call(Lua(fn, lua.LBool(true)))
 		err = <-errCh
 		Expect(err).To(Not(BeNil()))
@@ -64,5 +71,13 @@ var _ = Describe("ExecutionContext", func() {
 		Expect(err).To(Not(BeNil()))
 		Expect(err.Error()).To(Equal(" from lua\nstack traceback:\n\t[G]: in main chunk\n\t[G]: ?"))
 
+		ch = make(chan struct{}, 1)
+		GoFunctionCallback(ec, L.NewClosure(func(L *lua.LState) int {
+			ch <- struct{}{}
+			return 0
+		}), func(ctx context.Context) (lua.LValue, error) {
+			return lua.LNil, nil
+		})
+		<-ch
 	})
 })

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	lua "github.com/yuin/gopher-lua"
-	"go.uber.org/atomic"
 )
 
 type ExecutionContext struct {
@@ -15,7 +14,7 @@ type ExecutionContext struct {
 	lCalls    chan LuaCall
 	gCalls    chan GoCall
 	guardPool *GuardPool
-	started   *atomic.Bool
+	closed    bool
 }
 
 type Config struct {
@@ -34,7 +33,6 @@ func NewExecutionContext(L *lua.LState, config Config) *ExecutionContext {
 		exit:      make(chan struct{}, 1),
 		lCalls:    make(chan LuaCall, config.LuaStackSize),
 		gCalls:    make(chan GoCall, config.GoStackSize),
-		started:   atomic.NewBool(false),
 		guardPool: NewGuardPool(64),
 	}
 }
@@ -66,6 +64,9 @@ func (ec *ExecutionContext) startLua() {
 }
 
 func (ec *ExecutionContext) callLua(call LuaCall) {
+	if ec.closed {
+		return
+	}
 	oldCtx := ec.L.Context()
 	ctx := oldCtx
 	if ec.config.LuaCallTimeout > 0 {
@@ -97,6 +98,9 @@ func (ec *ExecutionContext) startGo() {
 }
 
 func (ec *ExecutionContext) callGo(call GoCall) {
+	if ec.closed {
+		return
+	}
 	ctx := context.Background()
 	if ec.config.GoCallTimeout > 0 {
 		var cancel context.CancelFunc
@@ -119,17 +123,15 @@ func (ec *ExecutionContext) Defer(guard Guard) {
 }
 
 func (ec *ExecutionContext) Close() {
+	ec.exit <- struct{}{}
+	for i := 0; i < ec.config.GoCallConcurrency; i++ {
+		ec.exit <- struct{}{}
+	}
+
 	ec.guardPool.Close()
 	ec.guardPool.ForEach(func(r Guard) {
 		r.Release()
 		r.setPool(nil)
 		r.setNode(nil)
 	})
-	if !ec.started.CAS(true, false) {
-		return
-	}
-	ec.exit <- struct{}{}
-	for i := 0; i < ec.config.GoCallConcurrency; i++ {
-		ec.exit <- struct{}{}
-	}
 }

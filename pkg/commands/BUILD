@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//_proto:go_default_library",
+        "//pkg/plugin:go_default_library",
         "//pkg/server:go_default_library",
         "@com_github_hashicorp_memberlist//:go_default_library",
         "@com_github_nsqio_go_diskqueue//:go_default_library",

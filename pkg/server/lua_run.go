@@ -114,6 +114,8 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	exit := make(chan time.Duration, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
 	inboxConsumer := s.inbox.NewConsumer(id)
+	ctx, cancel := context.WithCancel(L.Context())
+	L.SetContext(ctx)
 
 	ec := core.NewExecutionContext(L, core.Config{
 		OnError: func(err error) {
@@ -208,6 +210,10 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	})
 	coreSQL.Open(L, ec, sql.Open)
 	coreTime.Open(L, ec, time.Now)
+	for _, plugin := range s.plugins {
+		plugin.Open(L, ec)
+	}
+
 	fn := &lua.LFunction{
 		IsG:       false,
 		Env:       L.Env,
@@ -220,6 +226,7 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	}
 
 	<-exit
+	cancel()
 	ec.Close()
 	L.Close()
 }

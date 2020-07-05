@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/joesonw/drlee/pkg/core"
 	"github.com/joesonw/drlee/pkg/core/object"
@@ -74,6 +75,7 @@ func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ch := make(chan error, 1)
 	guard := core.NewGuard("http.ResponseWriter", func() {
 		r.Body.Close()
+		ch <- nil
 	})
 	s.ec.Defer(guard)
 	s.ec.Call(core.Scoped(func(L *lua.LState) error {
@@ -112,6 +114,9 @@ func lServerStart(L *lua.LState) int {
 
 		go func() {
 			if err := server.server.Serve(lis); err != nil {
+				if strings.Contains(err.Error(), "use of closed network connection") {
+					return
+				}
 				server.ec.Call(core.Scoped(func(L *lua.LState) error {
 					return err
 				}))

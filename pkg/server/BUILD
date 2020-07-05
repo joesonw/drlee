@@ -38,6 +38,7 @@ go_library(
         "//pkg/core/rpc:go_default_library",
         "//pkg/core/sql:go_default_library",
         "//pkg/core/time:go_default_library",
+        "//pkg/plugin:go_default_library",
         "//pkg/runtime:go_default_library",
         "//pkg/utils:go_default_library",
         "@com_github_denisenkom_go_mssqldb//:go_default_library",

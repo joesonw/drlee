@@ -99,24 +99,33 @@ type Guard interface {
 
 // guard guard a resource release function, will be called only once TODO: should we ref count? or timeout to delete leaked resources?
 type guard struct {
-	name     string
-	released *atomic.Bool
-	release  func()
-	node     *guardNode
-	pool     *GuardPool
+	name         string
+	released     *atomic.Bool
+	release      func()
+	node         *guardNode
+	pool         *GuardPool
+	afterRelease func()
 }
 
-func NewGuard(name string, release func()) Guard {
+func NewGuard(name string, release func(), callback ...func()) Guard {
+	var afterRelease func()
+	if len(callback) > 0 {
+		afterRelease = callback[0]
+	}
 	return &guard{
-		name:     name,
-		released: atomic.NewBool(false),
-		release:  release,
+		name:         name,
+		released:     atomic.NewBool(false),
+		release:      release,
+		afterRelease: afterRelease,
 	}
 }
 
 func (g *guard) Release() {
 	if g.released.CAS(false, true) {
 		g.release()
+		if g.afterRelease != nil {
+			g.afterRelease()
+		}
 	}
 }
 

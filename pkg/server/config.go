@@ -3,11 +3,17 @@ package server
 import "time"
 
 type Config struct {
-	NodeName    string       `yaml:"node-name"`
-	Gossip      GossipConfig `yaml:"gossip"`
-	RPC         RPCConfig    `yaml:"rpc"`
-	Concurrency int          `yaml:"concurrency"`
-	Queue       QueueConfig  `yaml:"queue"`
+	NodeName    string         `yaml:"node-name"`
+	Gossip      GossipConfig   `yaml:"gossip"`
+	RPC         RPCConfig      `yaml:"rpc"`
+	Concurrency int            `yaml:"concurrency"`
+	Queue       QueueConfig    `yaml:"queue"`
+	Plugins     []PluginConfig `yaml:"plugins"`
+}
+
+type PluginConfig struct {
+	Path   string `yaml:"path"`
+	Symbol string `yaml:"symbol"`
 }
 
 type QueueConfig struct {

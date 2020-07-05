@@ -6,9 +6,11 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	goPlugin "plugin"
 	"time"
 
 	"github.com/hashicorp/memberlist"
+	"github.com/joesonw/drlee/pkg/plugin"
 	"github.com/joesonw/drlee/pkg/server"
 	"github.com/joesonw/drlee/proto"
 	diskqueue "github.com/nsqio/go-diskqueue"
@@ -50,6 +52,25 @@ func (s *ServerCommand) Build(ctx context.Context) *cobra.Command {
 				logger.Fatal("unable to parse config", zap.Error(err))
 			}
 
+			var plugins []plugin.Interface
+			for _, pluginConfig := range config.Plugins {
+				p, err := goPlugin.Open(pluginConfig.Path)
+				if err != nil {
+					logger.Fatal("unable to load plugin: "+pluginConfig.Path, zap.Error(err))
+				}
+
+				symbol, err := p.Lookup(pluginConfig.Symbol)
+				if err != nil {
+					logger.Fatal("unable to load plugin: "+pluginConfig.Path, zap.Error(err))
+				}
+
+				plg, ok := symbol.(plugin.Interface)
+				if !ok {
+					logger.Fatal(fmt.Sprintf("plugin %s@%s is not a plugin.Interface", pluginConfig.Symbol, pluginConfig.Path))
+				}
+				plugins = append(plugins, plg)
+			}
+
 			if config.Queue.MaxBytesPerFile <= 0 {
 				config.Queue.MaxBytesPerFile = 100 * 1024 * 1024
 			}
@@ -88,7 +109,7 @@ func (s *ServerCommand) Build(ctx context.Context) *cobra.Command {
 
 			var members *memberlist.Memberlist
 
-			srv := server.New(config, func() *memberlist.Memberlist { return members }, inbox, outbox, logger)
+			srv := server.New(config, func() *memberlist.Memberlist { return members }, inbox, outbox, logger, plugins)
 			memberlistConfig := memberlist.DefaultLANConfig()
 			memberlistConfig.Name = config.NodeName
 			memberlistConfig.BindAddr = config.Gossip.Addr
