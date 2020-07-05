@@ -48,9 +48,9 @@ var _ = Describe("RPC", func() {
 			`,
 			func(L *lua.LState, ec *core.ExecutionContext) {
 				Open(L, ec, &Env{
-					Call: func(ctx context.Context, req Request, cb func(Response)) {
-						r = &req
-						cb(Response{
+					Call: func(ctx context.Context, req *Request, cb func(*Response)) {
+						r = req
+						cb(&Response{
 							Body: []byte(strconv.Quote("ok")),
 						})
 					},
@@ -74,9 +74,9 @@ var _ = Describe("RPC", func() {
 			`,
 			func(L *lua.LState, ec *core.ExecutionContext) {
 				Open(L, ec, &Env{
-					Broadcast: func(ctx context.Context, req Request, cb func([]Response)) {
-						r = &req
-						cb([]Response{{
+					Broadcast: func(ctx context.Context, req *Request, cb func([]*Response)) {
+						r = req
+						cb([]*Response{{
 							Body: []byte(strconv.Quote("ok")),
 						}, {
 							Error: errors.New("error"),
@@ -89,13 +89,13 @@ var _ = Describe("RPC", func() {
 	})
 
 	It("should start", func() {
-		read := make(chan Request, 1)
-		read <- Request{
+		read := make(chan *Request, 1)
+		read <- &Request{
 			ID:   "123",
 			Name: "hello",
 			Body: []byte(strconv.Quote("world")),
 		}
-		response := make(chan Response, 1)
+		response := make(chan *Response, 1)
 		test.Async(`
 			local rpc = require "rpc"
 			rpc.register("hello", function (message, reply)
@@ -110,12 +110,12 @@ var _ = Describe("RPC", func() {
 					Register: func(name string) {},
 					Start: func() {
 					},
-					Reply: func(id, nodeName string, isLoopBack bool, res Response) {
+					Reply: func(id, nodeName string, isLoopBack bool, res *Response) {
 						if id == "123" {
 							response <- res
 						}
 					},
-					ReadChan: func() <-chan Request {
+					ReadChan: func() <-chan *Request {
 						return read
 					},
 				})

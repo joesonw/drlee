@@ -41,6 +41,7 @@ type Value struct {
 	visited map[*lua.LTable]bool
 }
 
+//nolint:gocyclo,funlen
 func (j Value) MarshalJSON() (data []byte, err error) {
 	switch converted := j.LValue.(type) {
 	case lua.LBool:
@@ -52,11 +53,12 @@ func (j Value) MarshalJSON() (data []byte, err error) {
 	case lua.LString:
 		data, err = json.Marshal(string(converted))
 	case *lua.LUserData:
-		if stringer, ok := converted.Value.(fmt.Stringer); ok {
-			data = []byte(`"` + stringer.String() + `"`)
-		} else if marshaller, ok := converted.Value.(json.Marshaler); ok {
-			data, err = marshaller.MarshalJSON()
-		} else {
+		switch v := converted.Value.(type) {
+		case fmt.Stringer:
+			data = []byte(`"` + v.String() + `"`)
+		case json.Marshaler:
+			data, err = v.MarshalJSON()
+		default:
 			data = []byte(`"*USERDATA*"`)
 		}
 	case *lua.LTable:
@@ -104,7 +106,7 @@ func (j Value) MarshalJSON() (data []byte, err error) {
 	default:
 		err = invalidTypeError(j.LValue.Type())
 	}
-	return
+	return data, err
 }
 
 func Decode(L *lua.LState, data []byte) (lua.LValue, error) {

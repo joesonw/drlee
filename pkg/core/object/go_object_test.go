@@ -16,6 +16,7 @@ func Test(t *testing.T) {
 	RunSpecs(t, "core/object")
 }
 
+//nolint:goconst,dupl
 var _ = Describe("GoObject", func() {
 	Context("New", func() {
 		It("should allow extra data", func() {

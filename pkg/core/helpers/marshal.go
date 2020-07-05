@@ -44,6 +44,7 @@ func tableToStruct(table *lua.LTable, val reflect.Value) error {
 	return nil
 }
 
+//nolint:funlen,gocyclo
 func unmarshalValue(typ reflect.Type, field reflect.Value, value lua.LValue, tags []string) error {
 	if value.Type() == lua.LTNil {
 		return nil
@@ -75,6 +76,7 @@ func unmarshalValue(typ reflect.Type, field reflect.Value, value lua.LValue, tag
 
 	isUserData := false
 	for _, tag := range tags {
+		//nolint:goconst
 		if tag == "UserData" {
 			isUserData = true
 			break
@@ -83,25 +85,7 @@ func unmarshalValue(typ reflect.Type, field reflect.Value, value lua.LValue, tag
 
 	kind := typ.Kind()
 	switch kind {
-	case reflect.Int64:
-		fallthrough
-	case reflect.Int32:
-		fallthrough
-	case reflect.Int16:
-		fallthrough
-	case reflect.Int:
-		fallthrough
-	case reflect.Uint64:
-		fallthrough
-	case reflect.Uint32:
-		fallthrough
-	case reflect.Uint16:
-		fallthrough
-	case reflect.Uint:
-		fallthrough
-	case reflect.Float64:
-		fallthrough
-	case reflect.Float32:
+	case reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint, reflect.Float64, reflect.Float32:
 		if value.Type() != lua.LTNumber {
 			return errors.New(value.Type().String() + " unable to be assigned to " + kind.String())
 		}
@@ -113,9 +97,7 @@ func unmarshalValue(typ reflect.Type, field reflect.Value, value lua.LValue, tag
 		if value.Type() != lua.LTBool {
 			return errors.New(value.Type().String() + " unable to be assigned to " + kind.String())
 		}
-	case reflect.Map:
-		fallthrough
-	case reflect.Slice:
+	case reflect.Map, reflect.Slice:
 		if value.Type() != lua.LTTable {
 			return errors.New(value.Type().String() + " unable to be assigned to " + kind.String())
 		}
@@ -276,6 +258,7 @@ func structToTable(L *lua.LState, val reflect.Value) (*lua.LTable, error) {
 	return table, nil
 }
 
+//nolint:funlen,gocyclo
 func marshalValue(L *lua.LState, typ reflect.Type, field reflect.Value, tags []string) (lua.LValue, error) {
 	if typ == reflectTimeDurationType {
 		dur := field.Interface().(time.Duration)
@@ -360,9 +343,8 @@ func marshalValue(L *lua.LState, typ reflect.Type, field reflect.Value, tags []s
 			ud := L.NewUserData()
 			ud.Value = field.Interface()
 			return ud, nil
-		} else {
-			return structToTable(L, field)
 		}
+		return structToTable(L, field)
 	}
 	return nil, errors.New(kind.String() + " unable to be casted to lua")
 }
@@ -377,11 +359,7 @@ func cloneTable(L *lua.LState, table *lua.LTable) *lua.LTable {
 
 func Clone(L *lua.LState, value lua.LValue) lua.LValue {
 	switch value.Type() {
-	case lua.LTNumber:
-		fallthrough
-	case lua.LTBool:
-		fallthrough
-	case lua.LTString:
+	case lua.LTNumber, lua.LTBool, lua.LTString:
 		return value
 	case lua.LTTable:
 		return cloneTable(L, value.(*lua.LTable))
@@ -422,26 +400,26 @@ func UnmarshalToMap(L *lua.LState, lValue lua.LValue) (interface{}, error) {
 				}
 			}
 			return arr, nil
-		} else { // is map
-			m := map[string]interface{}{}
-			var err error
-			table.ForEach(func(key lua.LValue, value lua.LValue) {
-				if err != nil {
-					return
-				}
-				in, e := UnmarshalToMap(L, value)
-				if e != nil {
-					e = err
-					return
-				}
-
-				m[key.String()] = in
-			})
-			if err != nil {
-				return nil, err
-			}
-			return m, nil
 		}
+		// is map
+		m := map[string]interface{}{}
+		var err error
+		table.ForEach(func(key lua.LValue, value lua.LValue) {
+			if err != nil {
+				return
+			}
+			in, e := UnmarshalToMap(L, value)
+			if e != nil {
+				err = e
+				return
+			}
+
+			m[key.String()] = in
+		})
+		if err != nil {
+			return nil, err
+		}
+		return m, nil
 	}
 	return nil, errors.New(lValue.Type().String() + " is not supported")
 }

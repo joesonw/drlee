@@ -18,14 +18,16 @@ var _ = Describe("TCP Client", func() {
 		a := lis.Addr().(*net.TCPAddr)
 		go func() {
 			defer GinkgoRecover()
-			conn, err := lis.Accept()
+			var conn net.Conn
+			conn, err = lis.Accept()
 			Expect(err).To(BeNil())
 
 			b := make([]byte, 5)
 			_, err = conn.Read(b)
 			Expect(err).To(BeNil())
 			Expect(string(b)).To(Equal("hello"))
-			conn.Write([]byte("world"))
+			_, err = conn.Write([]byte("world"))
+			Expect(err).To(BeNil())
 		}()
 
 		test.Async(`

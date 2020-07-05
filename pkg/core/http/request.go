@@ -70,7 +70,7 @@ func lRequest(L *lua.LState) int {
 		guard := core.NewGuard("*http.Response", func() {
 			res.Body.Close()
 		})
-		client.ec.Defer(guard)
+		client.ec.Leak(guard)
 
 		return NewResponse(L, res, client.ec, guard).Value(), nil
 	})

@@ -71,7 +71,7 @@ func lOpen(L *lua.LState) int {
 		guard := core.NewGuard("sql.Conn", func() {
 			conn.Close()
 		})
-		uv.ec.Defer(guard)
+		uv.ec.Leak(guard)
 
 		obj := object.NewProtected(L, connFuncs, map[string]lua.LValue{}, &uvConn{
 			ec:   uv.ec,
@@ -193,10 +193,15 @@ func query(L *lua.LState, ec *core.ExecutionContext, db Interface) int {
 	cb := L.Get(L.GetTop())
 
 	ec.Call(core.Go(func(ctx context.Context) (err error) {
+		// nolint:rowserrcheck
 		rows, err := db.QueryContext(L.Context(), query, args...)
 		if err != nil {
 			ec.Call(core.Lua(cb, utils.LError(err)))
 			return nil
+		}
+		if err = rows.Err(); err != nil {
+			ec.Call(core.Lua(cb, utils.LError(err)))
+			return rows.Close()
 		}
 		defer func() {
 			err = rows.Close()

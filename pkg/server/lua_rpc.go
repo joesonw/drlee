@@ -85,7 +85,7 @@ func (s *Server) luaRPCCall(ctx context.Context, name string, body []byte) ([]by
 	return res.Result, nil
 }
 
-func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) []coreRPC.Response {
+func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) []*coreRPC.Response {
 	var responseIDList []string
 
 	s.localServicesMu.RLock()
@@ -112,7 +112,7 @@ func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) 
 			if rpc == nil {
 				id := uuid.NewV4().String()
 				responseIDList = append(responseIDList, id)
-				s.replybox.Insert(RPCResponse{
+				s.replybox.Insert(&RPCResponse{
 					ID:        id,
 					Result:    []byte(fmt.Sprintf("service \"%s\" is not registered in cluster", name)),
 					Timestamp: time.Now(),
@@ -129,7 +129,7 @@ func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) 
 			if err != nil {
 				id := uuid.NewV4().String()
 				responseIDList = append(responseIDList, id)
-				s.replybox.Insert(RPCResponse{
+				s.replybox.Insert(&RPCResponse{
 					ID:        id,
 					Result:    []byte(err.Error()),
 					Timestamp: time.Now(),
@@ -144,15 +144,15 @@ func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) 
 	s.servicesMu.RUnlock()
 	s.endpointMu.RLock()
 
-	var result []coreRPC.Response
+	var result []*coreRPC.Response
 	for _, id := range responseIDList {
 		res := <-s.replybox.Watch(id)
 		if res.IsError {
-			result = append(result, coreRPC.Response{
+			result = append(result, &coreRPC.Response{
 				Error: errors.New(string(res.Result)),
 			})
 		} else {
-			result = append(result, coreRPC.Response{
+			result = append(result, &coreRPC.Response{
 				Body: res.Result,
 			})
 		}
@@ -160,6 +160,7 @@ func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) 
 	return result
 }
 
+// nolint:unparam
 func (s *Server) callLuaRPCMethod(ctx context.Context, req *RPCRequest) ([]byte, error) {
 	ch := s.replybox.Watch(req.ID)
 	if err := s.inbox.Put(req); err != nil {

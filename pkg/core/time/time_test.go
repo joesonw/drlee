@@ -62,9 +62,9 @@ var _ = Describe("time", func() {
 			func(L *lua.LState, ec *core.ExecutionContext) {
 				Open(L, ec, func() time.Time {
 					if callCount != 0 {
-						now := time.Now()
-						Expect(now.Sub(start).Milliseconds()).Should(BeNumerically(">=", int64(1000)))
-						Expect(now.Sub(start).Milliseconds()).Should(BeNumerically("<", int64(1010)))
+						now2 := time.Now()
+						Expect(now2.Sub(start).Milliseconds()).Should(BeNumerically(">=", int64(1000)))
+						Expect(now2.Sub(start).Milliseconds()).Should(BeNumerically("<", int64(1010)))
 					}
 					t := now.Add(time.Duration(callCount) * time.Second)
 					callCount++

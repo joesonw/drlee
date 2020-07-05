@@ -32,6 +32,7 @@ func NewServerCommand(logger *zap.Logger) *ServerCommand {
 	}
 }
 
+//nolint:funlen,gocyclo
 func (s *ServerCommand) Build(ctx context.Context) *cobra.Command {
 	logger := s.logger
 	var pJoin *[]string
@@ -48,18 +49,20 @@ func (s *ServerCommand) Build(ctx context.Context) *cobra.Command {
 				logger.Fatal("unable to read config", zap.Error(err))
 			}
 			config := &server.Config{}
-			if err := yaml.Unmarshal(bytes, config); err != nil {
+			if err = yaml.Unmarshal(bytes, config); err != nil {
 				logger.Fatal("unable to parse config", zap.Error(err))
 			}
 
 			var plugins []plugin.Interface
 			for _, pluginConfig := range config.Plugins {
-				p, err := goPlugin.Open(pluginConfig.Path)
+				var p *goPlugin.Plugin
+				p, err = goPlugin.Open(pluginConfig.Path)
 				if err != nil {
 					logger.Fatal("unable to load plugin: "+pluginConfig.Path, zap.Error(err))
 				}
 
-				symbol, err := p.Lookup(pluginConfig.Symbol)
+				var symbol goPlugin.Symbol
+				symbol, err = p.Lookup(pluginConfig.Symbol)
 				if err != nil {
 					logger.Fatal("unable to load plugin: "+pluginConfig.Path, zap.Error(err))
 				}
@@ -100,7 +103,7 @@ func (s *ServerCommand) Build(ctx context.Context) *cobra.Command {
 				diskqueueLeveledLoggers[lvl](f, args...)
 			}
 
-			if err := os.MkdirAll(config.Queue.Dir, os.ModePerm|os.ModeDir); err != nil {
+			if err = os.MkdirAll(config.Queue.Dir, os.ModePerm|os.ModeDir); err != nil {
 				logger.Fatal("unable to create dir: "+config.Queue.Dir+" for queue", zap.Error(err))
 			}
 
@@ -117,10 +120,13 @@ func (s *ServerCommand) Build(ctx context.Context) *cobra.Command {
 			memberlistConfig.AdvertisePort = config.Gossip.Port
 			memberlistConfig.Delegate = srv
 			memberlistConfig.Events = srv
-			//memberlistConfig.Conflict = srv
 			memberlistConfig.Merge = srv
-			//memberlistConfig.Ping = srv
-			//memberlistConfig.Alive = srv
+			//nolint:gocritic
+			// memberlistConfig.Conflict = srv
+			//nolint:gocritic
+			// memberlistConfig.Ping = srv
+			//nolint:gocritic
+			// memberlistConfig.Alive = srv
 			memberlistConfig.Logger = zap.NewStdLog(logger)
 
 			grpcServer := grpc.NewServer()

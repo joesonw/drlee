@@ -14,6 +14,7 @@ go_library(
         "inbox.go",
         "listeners.go",
         "lua_rpc.go",
+        "lua_rpc_env.go",
         "lua_run.go",
         "merge_delegate.go",
         "messages.go",

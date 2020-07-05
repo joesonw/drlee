@@ -26,7 +26,7 @@ func newConn(L *lua.LState, ec *core.ExecutionContext, conn net.Conn) *object.Ob
 	guard := core.NewGuard("net.Conn", func() {
 		conn.Close()
 	})
-	ec.Defer(guard)
+	ec.Leak(guard)
 	obj.SetFunction("write", stream.NewWriter(L, ec, conn, true))
 	obj.SetFunction("read", stream.NewReader(L, ec, conn, true))
 	obj.SetFunction("close", stream.NewCloser(L, ec, guard, conn, true))

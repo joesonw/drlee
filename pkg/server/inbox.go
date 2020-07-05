@@ -12,14 +12,14 @@ import (
 type Inbox struct {
 	diskqueue.Interface
 	*sync.Mutex
-	consumers map[int]chan coreRPC.Request
+	consumers map[int]chan *coreRPC.Request
 }
 
 func newInbox(queue diskqueue.Interface) *Inbox {
 	return &Inbox{
 		Interface: queue,
 		Mutex:     &sync.Mutex{},
-		consumers: map[int]chan coreRPC.Request{},
+		consumers: map[int]chan *coreRPC.Request{},
 	}
 }
 
@@ -29,7 +29,7 @@ func (inbox *Inbox) Reset() {
 	for _, ch := range inbox.consumers {
 		close(ch)
 	}
-	inbox.consumers = map[int]chan coreRPC.Request{}
+	inbox.consumers = map[int]chan *coreRPC.Request{}
 }
 
 func (inbox *Inbox) Put(req *RPCRequest) error {
@@ -46,7 +46,7 @@ func (inbox *Inbox) Broadcast(req *RPCRequest) []string {
 	for _, consumer := range inbox.consumers {
 		id := uuid.NewV4().String()
 		ids = append(ids, id)
-		consumer <- coreRPC.Request{
+		consumer <- &coreRPC.Request{
 			ID:         id,
 			Name:       req.Name,
 			Body:       req.Body,
@@ -57,9 +57,9 @@ func (inbox *Inbox) Broadcast(req *RPCRequest) []string {
 	return ids
 }
 
-func (inbox *Inbox) NewConsumer(id int) <-chan coreRPC.Request {
-	ch := make(chan coreRPC.Request, 1)
-	consumer := make(chan coreRPC.Request, 64)
+func (inbox *Inbox) NewConsumer(id int) <-chan *coreRPC.Request {
+	ch := make(chan *coreRPC.Request, 1)
+	consumer := make(chan *coreRPC.Request, 64)
 	inbox.Lock()
 	inbox.consumers[id] = consumer
 	inbox.Unlock()
@@ -73,7 +73,7 @@ func (inbox *Inbox) NewConsumer(id int) <-chan coreRPC.Request {
 					if err := utils.UnmarshalGOB(data, req); err != nil {
 						continue
 					}
-					ch <- coreRPC.Request{
+					ch <- &coreRPC.Request{
 						ID:         req.ID,
 						Name:       req.Name,
 						Body:       req.Body,

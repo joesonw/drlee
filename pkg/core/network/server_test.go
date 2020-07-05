@@ -41,7 +41,8 @@ var _ = Describe("TCP Server", func() {
 						defer GinkgoRecover()
 						time.Sleep(time.Second)
 						addr := lis.Addr().(*net.TCPAddr)
-						conn, err := net.Dial(network, fmt.Sprintf("localhost:%d", addr.Port))
+						var conn net.Conn
+						conn, err = net.Dial(network, fmt.Sprintf("localhost:%d", addr.Port))
 						Expect(err).To(BeNil())
 						_, err = conn.Write([]byte("hello"))
 						Expect(err).To(BeNil())

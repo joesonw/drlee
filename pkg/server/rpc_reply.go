@@ -29,6 +29,7 @@ type RPCResponse struct {
 	IsError   bool
 }
 
+//nolint:gochecknoinits
 func init() {
 	gob.Register(&RPCRequest{})
 	gob.Register(&RPCResponse{})

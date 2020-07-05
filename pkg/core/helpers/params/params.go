@@ -11,127 +11,127 @@ type Type interface {
 	setValue(value lua.LValue)
 }
 
-type numberType struct {
+type NumberType struct {
 	value lua.LNumber
 }
 
-func (numberType) Type() lua.LValueType {
+func (NumberType) Type() lua.LValueType {
 	return lua.LTNumber
 }
 
-func (t *numberType) setValue(value lua.LValue) {
+func (t *NumberType) setValue(value lua.LValue) {
 	t.value = value.(lua.LNumber)
 }
 
-func (t numberType) Int() int {
+func (t NumberType) Int() int {
 	return int(t.value)
 }
 
-func (t numberType) Int64() int64 {
+func (t NumberType) Int64() int64 {
 	return int64(t.value)
 }
 
-func (t numberType) Float64() float64 {
+func (t NumberType) Float64() float64 {
 	return float64(t.value)
 }
 
-func Number(value ...lua.LNumber) *numberType {
+func Number(value ...lua.LNumber) *NumberType {
 	if len(value) > 0 {
-		return &numberType{value[0]}
+		return &NumberType{value[0]}
 	}
-	return &numberType{lua.LNumber(0)}
+	return &NumberType{lua.LNumber(0)}
 }
 
-type stringType struct {
+type StringType struct {
 	value lua.LString
 }
 
-func (stringType) Type() lua.LValueType {
+func (StringType) Type() lua.LValueType {
 	return lua.LTString
 }
 
-func (t *stringType) setValue(value lua.LValue) {
+func (t *StringType) setValue(value lua.LValue) {
 	t.value = value.(lua.LString)
 }
 
-func (t stringType) String() string {
+func (t StringType) String() string {
 	return t.value.String()
 }
 
-func String(value ...string) *stringType {
+func String(value ...string) *StringType {
 	if len(value) > 0 {
-		return &stringType{lua.LString(value[0])}
+		return &StringType{lua.LString(value[0])}
 	}
-	return &stringType{lua.LString("")}
+	return &StringType{lua.LString("")}
 }
 
-type boolType struct {
+type BoolType struct {
 	value lua.LBool
 }
 
-func (boolType) Type() lua.LValueType {
+func (BoolType) Type() lua.LValueType {
 	return lua.LTBool
 }
 
-func (t *boolType) setValue(value lua.LValue) {
+func (t *BoolType) setValue(value lua.LValue) {
 	t.value = value.(lua.LBool)
 }
 
-func (t boolType) Bool() bool {
+func (t BoolType) Bool() bool {
 	return bool(t.value)
 }
 
-func Bool(value ...bool) *boolType {
+func Bool(value ...bool) *BoolType {
 	if len(value) > 0 {
-		return &boolType{lua.LBool(value[0])}
+		return &BoolType{lua.LBool(value[0])}
 	}
-	return &boolType{lua.LBool(false)}
+	return &BoolType{lua.LBool(false)}
 }
 
-type functionType struct {
+type FunctionType struct {
 	value *lua.LFunction
 }
 
-func (functionType) Type() lua.LValueType {
+func (FunctionType) Type() lua.LValueType {
 	return lua.LTFunction
 }
 
-func (t *functionType) setValue(value lua.LValue) {
+func (t *FunctionType) setValue(value lua.LValue) {
 	t.value = value.(*lua.LFunction)
 }
 
-func (t *functionType) Value() *lua.LFunction {
+func (t *FunctionType) Value() *lua.LFunction {
 	return t.value
 }
 
-func Function(value ...*lua.LFunction) *functionType {
+func Function(value ...*lua.LFunction) *FunctionType {
 	if len(value) > 0 {
-		return &functionType{value[0]}
+		return &FunctionType{value[0]}
 	}
-	return &functionType{nil}
+	return &FunctionType{nil}
 }
 
-type tableType struct {
+type TableType struct {
 	value *lua.LTable
 }
 
-func (tableType) Type() lua.LValueType {
+func (TableType) Type() lua.LValueType {
 	return lua.LTTable
 }
 
-func (t *tableType) setValue(value lua.LValue) {
+func (t *TableType) setValue(value lua.LValue) {
 	t.value = value.(*lua.LTable)
 }
 
-func (t tableType) Table() *lua.LTable {
+func (t TableType) Table() *lua.LTable {
 	return t.value
 }
 
-func Table(value ...*lua.LTable) *tableType {
+func Table(value ...*lua.LTable) *TableType {
 	if len(value) > 0 {
-		return &tableType{value[0]}
+		return &TableType{value[0]}
 	}
-	return &tableType{nil}
+	return &TableType{nil}
 }
 
 type UserDataType struct {
@@ -159,9 +159,9 @@ func Check(L *lua.LState, startIndex, requiredLength int, msg string, types ...T
 	cb := lua.LNil
 	if L.Get(n).Type() == lua.LTFunction { // last parameter is callback
 		cb = L.Get(n)
-		n = n - 1
+		n--
 	}
-	n = n - (startIndex - 1)
+	n -= startIndex - 1
 	if n < requiredLength {
 		L.RaiseError(fmt.Sprintf("%s requires at least %d arguments", msg, requiredLength))
 	}

@@ -2,7 +2,6 @@ package sql
 
 import (
 	"database/sql"
-	"fmt"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -62,7 +61,7 @@ var _ = Describe("SQL", func() {
 			WillReturnResult(sqlmock.NewResult(3, 1))
 		mock.ExpectClose()
 
-		test.Async(fmt.Sprintf(`
+		test.Async(`
 				local sql = require "sql"
 				sql.open("mysql://user:password@localhost:1000/db1?utf=true", function (err, conn)
 					assert(err == nil, "sql_open no error")
@@ -85,7 +84,7 @@ var _ = Describe("SQL", func() {
 						end)
 					end)
 				end)
-				`),
+				`,
 			func(L *lua.LState, ec *core.ExecutionContext) {
 				Open(L, ec, func(driverName, dataSourceName string) (*sql.DB, error) {
 					return db, nil

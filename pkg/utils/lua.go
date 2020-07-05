@@ -34,7 +34,7 @@ func RegisterLuaModuleFunctions(L *lua.LState, name string, funcs map[string]*lu
 	}
 }
 
-func RegisterLuaScriptModule(L *lua.LState, name string, src string) {
+func RegisterLuaScriptModule(L *lua.LState, name, src string) {
 	tb := L.FindTable(L.Get(lua.RegistryIndex).(*lua.LTable), "_LOADED", 1)
 	mod := L.GetField(tb, name)
 	if mod.Type() != lua.LTTable {

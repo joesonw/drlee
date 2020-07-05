@@ -97,7 +97,7 @@ type Guard interface {
 	setPool(*GuardPool)
 }
 
-// guard guard a resource release function, will be called only once TODO: should we ref count? or timeout to delete leaked resources?
+// guard guard a resource release function, will be called only once
 type guard struct {
 	name         string
 	released     *atomic.Bool

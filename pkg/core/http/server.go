@@ -77,9 +77,9 @@ func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Body.Close()
 		ch <- nil
 	})
-	s.ec.Defer(guard)
+	s.ec.Leak(guard)
 	s.ec.Call(core.Scoped(func(L *lua.LState) error {
-		s.ec.Defer(guard)
+		s.ec.Leak(guard)
 		req := NewRequest(L, r, s.ec, guard)
 		res := NewResponseWriter(L, w, ch, s.ec)
 		s.ec.Call(core.LuaCatch(s.handler, func(err error) {
@@ -92,7 +92,7 @@ func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	guard.Cancel()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		w.Write([]byte(err.Error())) //nolint:errcheck
 	}
 }
 

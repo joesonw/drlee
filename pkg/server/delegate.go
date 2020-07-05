@@ -23,16 +23,13 @@ func (s *Server) NodeMeta(limit int) []byte {
 // so would block the entire UDP packet receive loop. Additionally, the byte
 // slice may be modified after the call returns, so it should be copied if needed
 func (s *Server) NotifyMsg(b []byte) {
-	switch MessageType(b[0]) {
-	case TypeRegistryBroadcast:
-		{
-			broadcast := &RegistryBroadcast{}
-			if err := unmarshalMessage(b, broadcast); err != nil {
-				s.logger.Error("unable to unmarshal RegistryBroadcast message", zap.Error(err))
-				return
-			}
-			s.handleRegistryBroadcast(broadcast)
+	if MessageType(b[0]) == TypeRegistryBroadcast {
+		broadcast := &RegistryBroadcast{}
+		if err := unmarshalMessage(b, broadcast); err != nil {
+			s.logger.Error("unable to unmarshal RegistryBroadcast message", zap.Error(err))
+			return
 		}
+		s.handleRegistryBroadcast(broadcast)
 	}
 }
 

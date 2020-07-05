@@ -45,10 +45,11 @@ func (ec *ExecutionContext) Start() {
 }
 
 func (ec *ExecutionContext) Call(call IsCall) {
-	if g, ok := call.(GoCall); ok {
-		ec.gCalls <- g
-	} else if l, ok := call.(LuaCall); ok {
-		ec.lCalls <- l
+	switch c := call.(type) {
+	case GoCall:
+		ec.gCalls <- c
+	case LuaCall:
+		ec.lCalls <- c
 	}
 }
 
@@ -117,7 +118,7 @@ func (ec *ExecutionContext) callGo(call GoCall) {
 	}
 }
 
-func (ec *ExecutionContext) Defer(guard Guard) {
+func (ec *ExecutionContext) Leak(guard Guard) {
 	guard.setPool(ec.guardPool)
 	ec.guardPool.Insert(guard)
 }

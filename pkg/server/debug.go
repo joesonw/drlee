@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
@@ -49,7 +50,7 @@ func (s *Server) RPCDebug(ctx context.Context, req *proto.DebugRequest) (res *pr
 			res = &proto.DebugResponse{Body: result}
 		}
 	}
-	return
+	return &proto.DebugResponse{Body: []byte(fmt.Sprintf("command '%s' not found", req.Name))}, nil
 }
 
 func (s *Server) RPCDebugStream(req *proto.DebugRequest, stream proto.RPC_RPCDebugStreamServer) error {

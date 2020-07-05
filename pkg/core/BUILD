@@ -21,7 +21,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "call_test.go",
         "core_test.go",
         "execution_context_test.go",
         "guard_test.go",

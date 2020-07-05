@@ -34,7 +34,6 @@ type Server struct {
 	members     *memberlist.Memberlist
 	broadcasts  *memberlist.TransmitLimitedQueue
 	outboxQueue diskqueue.Interface
-	queueCond   *sync.Cond
 	logger      *zap.Logger
 	plugins     []plugin.Interface
 
@@ -58,6 +57,7 @@ type Server struct {
 	isLuaReloading *atomic.Bool
 }
 
+//nolint:gocritic
 // New creates an new Server
 func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQueue diskqueue.Interface, outboxQueue diskqueue.Interface, logger *zap.Logger, plugins []plugin.Interface) *Server {
 	if config.Concurrency < 1 {
@@ -146,6 +146,6 @@ func (s *Server) handleNode(node *memberlist.Node) *Endpoint {
 
 func (s *Server) getRemoteRPC(nodeName string) proto.RPCClient {
 	s.endpointMu.RLock()
-	defer s.endpointMu.RUnlock()
+	defer s.endpointMu.RUnlock() //nolint:gocritic
 	return s.endpointRPCs[nodeName]
 }

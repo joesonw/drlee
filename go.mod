@@ -34,5 +34,5 @@ require (
 	google.golang.org/protobuf v1.23.0
 	gopkg.in/abiosoft/ishell.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 )

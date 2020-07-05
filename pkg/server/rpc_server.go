@@ -12,7 +12,7 @@ func (s *Server) RPCCall(ctx context.Context, req *proto.CallRequest) (res *prot
 	call := &RPCRequest{
 		ID:        uuid.NewV4().String(),
 		Name:      req.Name,
-		Body:      req.Body[:],
+		Body:      req.Body,
 		Timestamp: time.Now(),
 		Timeout:   time.Millisecond * time.Duration(req.TimeoutMilliseconds),
 		NodeName:  req.NodeName,
@@ -37,7 +37,7 @@ func (s *Server) RPCBroadcast(ctx context.Context, req *proto.BroadcastRequest) 
 
 	res.IDLst = s.inbox.Broadcast(&RPCRequest{
 		Name:      req.Name,
-		Body:      req.Body[:],
+		Body:      req.Body,
 		Timestamp: time.Now(),
 		Timeout:   time.Millisecond * time.Duration(req.TimeoutMilliseconds),
 		NodeName:  req.NodeName,
@@ -50,9 +50,9 @@ func (s *Server) RPCReply(ctx context.Context, req *proto.ReplyRequest) (res *pr
 	res = &proto.ReplyResponse{}
 	s.logger.Sugar().Debugf("received RPCReply [%s]", req.ID)
 
-	s.replybox.Insert(RPCResponse{
+	s.replybox.Insert(&RPCResponse{
 		ID:        req.ID,
-		Result:    req.Result[:],
+		Result:    req.Result,
 		Timestamp: time.Unix(0, req.TimestampNano),
 		IsError:   req.IsError,
 	})

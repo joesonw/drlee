@@ -26,7 +26,6 @@ import (
 	coreSQL "github.com/joesonw/drlee/pkg/core/sql"
 	coreTime "github.com/joesonw/drlee/pkg/core/time"
 	"github.com/joesonw/drlee/pkg/runtime"
-	"github.com/joesonw/drlee/pkg/utils"
 	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
 	"go.uber.org/zap"
@@ -41,6 +40,9 @@ func (s *Server) LoadLua(ctx context.Context, path string) error {
 
 	name := filepath.Base(path)
 	src, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
 	chunk, err := parse.Parse(bytes.NewBuffer(src), name)
 	if err != nil {
 		return err
@@ -109,6 +111,7 @@ func (s *Server) StopLua(timeout time.Duration) error {
 	return nil
 }
 
+//nolint:unparam
 func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, proto *lua.FunctionProto) {
 	logger := s.logger.Named(fmt.Sprintf("lua-worker-%s-%d", name, id))
 	exit := make(chan time.Duration, 1)
@@ -141,73 +144,12 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	coreRedis.Open(L, ec, func(options *redis.Options) coreRedis.Doable {
 		return redis.NewClient(options)
 	})
-	coreRPC.Open(L, ec, &coreRPC.Env{
-		Register: func(name string) {
-			s.localServicesMu.Lock()
-			s.localServices[name] = 1
-			s.localServicesMu.Unlock()
-		},
-		Call: func(ctx context.Context, req coreRPC.Request, cb func(coreRPC.Response)) {
-			go func() {
-				body, err := s.luaRPCCall(ctx, req.Name, req.Body)
-				cb(coreRPC.Response{
-					Body:  body,
-					Error: err,
-				})
-			}()
-		},
-		Broadcast: func(ctx context.Context, req coreRPC.Request, cb func([]coreRPC.Response)) {
-			go func() {
-				list := s.luaRPCBroadcast(ctx, req.Name, req.Body)
-				cb(list)
-			}()
-		},
-		Reply: func(id, nodeName string, isLoopBack bool, res coreRPC.Response) {
-			r := RPCResponse{
-				ID:        id,
-				Timestamp: time.Now(),
-				NodeName:  nodeName,
-			}
-			if res.Error != nil {
-				r.IsError = true
-				r.Result = []byte(res.Error.Error())
-			} else {
-				r.Result = res.Body
-			}
-
-			if isLoopBack {
-				s.replybox.Insert(r)
-				return
-			}
-
-			b, err := utils.MarshalGOB(&r)
-			if err != nil {
-				logger.Fatal("unable to marshal GOB", zap.Error(err))
-				return
-			}
-
-			if err := s.outboxQueue.Put(b); err != nil {
-				logger.Fatal("unable to put outbox queue", zap.Error(err))
-			}
-		},
-		ReadChan: func() <-chan coreRPC.Request {
-			return inboxConsumer
-		},
-		Start: func() {
-			for name, weight := range s.localServices {
-				nodeName := s.members.LocalNode().Name
-				s.broadcasts.QueueBroadcast(&RegistryBroadcast{
-					NodeName:  nodeName,
-					Timestamp: time.Now(),
-					Name:      name,
-					Weight:    weight,
-				})
-				logger.Info(fmt.Sprintf("broadcasted service \"%s\"", name))
-			}
-
-			logger.Info("lua rpc started")
-		},
-	})
+	env := luaRPCEnv{
+		server:        s,
+		inboxConsumer: inboxConsumer,
+		logger:        logger,
+	}
+	coreRPC.Open(L, ec, env.Build())
 	coreSQL.Open(L, ec, sql.Open)
 	coreTime.Open(L, ec, time.Now)
 	for _, plugin := range s.plugins {

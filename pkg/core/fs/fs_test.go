@@ -31,12 +31,12 @@ func (f *testLuaFile) Close() error {
 	return err
 }
 
-func runFSTest(src string, after ...func(L *lua.LState)) {
+func runFSTest(src string) {
 	test.Async(src, func(L *lua.LState, ec *core.ExecutionContext) {
 		Open(L, ec, func(s string, flag, perm int) (File, error) {
 			return os.OpenFile(s, flag, os.FileMode(perm))
 		}, runtime.New())
-	}, after...)
+	})
 }
 
 var _ = Describe("FS", func() {

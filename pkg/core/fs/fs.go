@@ -79,7 +79,7 @@ func lOpen(L *lua.LState) int {
 		guard := core.NewGuard("*os.File", func() {
 			file.Close()
 		})
-		fs.ec.Defer(guard)
+		fs.ec.Leak(guard)
 
 		f := &uvFile{
 			File: file,
@@ -160,6 +160,7 @@ func lReadDir(L *lua.LState) int {
 	return 0
 }
 
+//nolint:dupl
 func lMkdir(L *lua.LState) int {
 	fs := up(L)
 	path := params.String()
@@ -172,6 +173,7 @@ func lMkdir(L *lua.LState) int {
 	return 0
 }
 
+//nolint:dupl
 func lMkdirAll(L *lua.LState) int {
 	fs := up(L)
 	path := params.String()
@@ -182,14 +184,6 @@ func lMkdirAll(L *lua.LState) int {
 		return lua.LNil, err
 	})
 	return 0
-}
-
-func upFile(L *lua.LState) *uvFile {
-	f, err := object.Value(L.CheckUserData(1))
-	if err != nil {
-		L.RaiseError(err.Error())
-	}
-	return f.(*uvFile)
 }
 
 type uvFile struct {

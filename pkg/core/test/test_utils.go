@@ -6,7 +6,7 @@ import (
 
 	"github.com/joesonw/drlee/pkg/core"
 	"github.com/joesonw/drlee/pkg/runtime"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega" //nolint:golint,stylecheck
 	lua "github.com/yuin/gopher-lua"
 )
 

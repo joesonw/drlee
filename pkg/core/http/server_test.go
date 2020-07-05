@@ -51,10 +51,12 @@ var _ = Describe("HTTP Server", func() {
 						defer GinkgoRecover()
 						time.Sleep(time.Second)
 						addr := lis.Addr().(*net.TCPAddr)
-						req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d/test", addr.Port), strings.NewReader("hello world"))
+						var req *http.Request
+						req, err = http.NewRequest(http.MethodPost, fmt.Sprintf("http://localhost:%d/test", addr.Port), strings.NewReader("hello world"))
 						Expect(err).To(BeNil())
 						req.Header.Set("Hello", "world")
-						res, err := http.DefaultClient.Do(req)
+						var res *http.Response
+						res, err = http.DefaultClient.Do(req)
 						Expect(err).To(BeNil())
 						ch <- res
 					}()
@@ -95,9 +97,11 @@ var _ = Describe("HTTP Server", func() {
 				defer GinkgoRecover()
 				time.Sleep(time.Second)
 				addr := lis.Addr().(*net.TCPAddr)
-				req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d", addr.Port), nil)
+				var req *http.Request
+				req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d", addr.Port), nil)
 				Expect(err).To(BeNil())
-				res, err := http.DefaultClient.Do(req)
+				var res *http.Response
+				res, err = http.DefaultClient.Do(req)
 				Expect(err).To(BeNil())
 				ch <- res
 			}()

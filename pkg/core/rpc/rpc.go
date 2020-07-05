@@ -26,10 +26,10 @@ type Request struct {
 
 type Env struct {
 	Register  func(name string)
-	Call      func(ctx context.Context, req Request, cb func(Response))
-	Broadcast func(ctx context.Context, req Request, cb func([]Response))
-	Reply     func(id, nodeName string, isLoopBack bool, res Response)
-	ReadChan  func() <-chan Request
+	Call      func(ctx context.Context, req *Request, cb func(*Response))
+	Broadcast func(ctx context.Context, req *Request, cb func([]*Response))
+	Reply     func(id, nodeName string, isLoopBack bool, res *Response)
+	ReadChan  func() <-chan *Request
 	Start     func()
 }
 
@@ -37,6 +37,50 @@ type uV struct {
 	env      *Env
 	ec       *core.ExecutionContext
 	handlers map[string]*lua.LFunction
+}
+
+func (uv *uV) handle(req *Request) {
+	handler, ok := uv.handlers[req.Name]
+	if !ok {
+		uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{
+			Error: fmt.Errorf("method \"%s\" is not found", req.Name),
+		})
+		return
+	}
+	uv.ec.Call(core.Scoped(func(L *lua.LState) error {
+		v, err := json.Decode(L, req.Body)
+		if err != nil {
+			uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{
+				Error: fmt.Errorf("method \"%s\" is not found", req.Name),
+			})
+			return nil
+		}
+
+		err = utils.CallLuaFunction(L, handler, v, L.NewFunction(func(L *lua.LState) int {
+			err := L.Get(1)
+			if err == nil || err == lua.LNil {
+			} else {
+				uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{Error: errors.New(err.String())})
+				return 0
+			}
+			val := L.Get(2)
+			b, e := json.Encode(val)
+			if e != nil {
+				L.RaiseError(e.Error())
+				uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{Error: e})
+			} else {
+				uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{Body: b})
+			}
+			return 0
+		}))
+		if err != nil {
+			uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{
+				Error: err,
+			})
+			return nil
+		}
+		return nil
+	}))
 }
 
 func Open(L *lua.LState, ec *core.ExecutionContext, env *Env) {
@@ -72,47 +116,7 @@ func lStart(L *lua.LState) int {
 	uv.env.Start()
 	go func() {
 		for req := range ch {
-			handler, ok := uv.handlers[req.Name]
-			if !ok {
-				uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, Response{
-					Error: fmt.Errorf("method \"%s\" is not found", req.Name),
-				})
-				continue
-			}
-			uv.ec.Call(core.Scoped(func(L *lua.LState) error {
-				v, err := json.Decode(L, req.Body)
-				if err != nil {
-					uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, Response{
-						Error: fmt.Errorf("method \"%s\" is not found", req.Name),
-					})
-					return nil
-				}
-
-				err = utils.CallLuaFunction(L, handler, v, L.NewFunction(func(L *lua.LState) int {
-					err := L.Get(1)
-					if err == nil || err == lua.LNil {
-					} else {
-						uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, Response{Error: errors.New(err.String())})
-						return 0
-					}
-					val := L.Get(2)
-					b, e := json.Encode(val)
-					if e != nil {
-						L.RaiseError(e.Error())
-						uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, Response{Error: e})
-					} else {
-						uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, Response{Body: b})
-					}
-					return 0
-				}))
-				if err != nil {
-					uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, Response{
-						Error: err,
-					})
-					return nil
-				}
-				return nil
-			}))
+			uv.handle(req)
 		}
 	}()
 	return 0
@@ -140,10 +144,10 @@ func lCall(L *lua.LState) int {
 	}
 
 	uv.ec.Call(core.Go(func(ctx context.Context) error {
-		uv.env.Call(ctx, Request{
+		uv.env.Call(ctx, &Request{
 			Name: name,
 			Body: body,
-		}, func(res Response) {
+		}, func(res *Response) {
 			uv.ec.Call(core.Scoped(func(L *lua.LState) error {
 				if res.Error != nil {
 					return utils.CallLuaFunction(L, reply, utils.LError(res.Error))
@@ -175,10 +179,10 @@ func lBroadcast(L *lua.LState) int {
 	}
 
 	uv.ec.Call(core.Go(func(ctx context.Context) error {
-		uv.env.Broadcast(ctx, Request{
+		uv.env.Broadcast(ctx, &Request{
 			Name: name,
 			Body: body,
-		}, func(list []Response) {
+		}, func(list []*Response) {
 			uv.ec.Call(core.Scoped(func(L *lua.LState) error {
 				result := L.NewTable()
 				for _, res := range list {
