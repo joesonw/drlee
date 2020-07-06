@@ -141,9 +141,6 @@ func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) 
 		}
 	}
 
-	s.servicesMu.RUnlock()
-	s.endpointMu.RLock()
-
 	var result []*coreRPC.Response
 	for _, id := range responseIDList {
 		res := <-s.replybox.Watch(id)
