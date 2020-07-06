@@ -23,7 +23,10 @@ func newConn(L *lua.LState, ec *core.ExecutionContext, conn net.Conn, state ws.S
 	}
 	obj := object.NewProtected(L, connFuncs, properties, c)
 	guard := core.NewGuard("net.Conn", func() {
-		conn.Close()
+		err := conn.Close()
+		if err != nil {
+			panic(err)
+		}
 	})
 	ec.Leak(guard)
 	obj.SetFunction("close", stream.NewCloser(L, ec, guard, conn, true))

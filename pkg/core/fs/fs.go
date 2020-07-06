@@ -76,7 +76,7 @@ func lOpen(L *lua.LState) int {
 			return lua.LNil, err
 		}
 
-		guard := core.NewGuard("*os.File", func() {
+		guard := core.NewGuard("*os.File: "+path.String(), func() {
 			file.Close()
 		})
 		fs.ec.Leak(guard)

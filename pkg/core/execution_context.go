@@ -5,6 +5,7 @@ import (
 	"time"
 
 	lua "github.com/yuin/gopher-lua"
+	"go.uber.org/zap"
 )
 
 type ExecutionContext struct {
@@ -25,6 +26,7 @@ type Config struct {
 	GoCallTimeout     time.Duration
 	LuaCallTimeout    time.Duration
 	IsDebug           bool
+	Logger            *zap.Logger
 }
 
 func NewExecutionContext(L *lua.LState, config Config) *ExecutionContext {
@@ -131,9 +133,12 @@ func (ec *ExecutionContext) Close() {
 	}
 
 	ec.guardPool.Close()
-	ec.guardPool.ForEach(func(r Guard) {
-		r.Release()
-		r.setPool(nil)
-		r.setNode(nil)
+	ec.guardPool.ForEach(func(g Guard) {
+		if ec.config.IsDebug {
+			ec.config.Logger.Debug("releasing " + g.Name())
+		}
+		g.Release()
+		g.setPool(nil)
+		g.setNode(nil)
 	})
 }

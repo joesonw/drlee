@@ -40,6 +40,9 @@ type uV struct {
 }
 
 func (uv *uV) handle(req *Request) {
+	if req == nil {
+		return
+	}
 	handler, ok := uv.handlers[req.Name]
 	if !ok {
 		uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{
