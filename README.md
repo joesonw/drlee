@@ -6,6 +6,55 @@ I'm still doing extensive test on my own (with some real world scenarios). After
 
 # LUA API
 
+* [Core](#core)
+  * [File System](#file-system)
+     * [fs_open(path, flag?, mode?, cb?)](#fs_openpath-flag-mode-cb)
+     * [fs.remove(path, cb?)](#fsremovepath-cb)
+     * [fs.remove_all(path, cb?)](#fsremove_allpath-cb)
+     * [fs.stat(path, cb?)](#fsstatpath-cb)
+     * [fs.read_dir(path, cb?)](#fsread_dirpath-cb)
+     * [fs.mkdir(path, cb?)](#fsmkdirpath-cb)
+     * [fs.mkdir_all(path, cb?)](#fsmkdir_allpath-cb)
+     * [fs.readfile(path, cb?)](#fsreadfilepath-cb)
+     * [file:read(amount, cb?)](#filereadamount-cb)
+     * [file:write(data, cb?)](#filewritedata-cb)
+     * [file:close(cb?)](#fileclosecb)
+  * [HTTP](#http)
+     * [http.get(path, options?, cb?)](#httpgetpath-options-cb)
+     * [http.post(path, options?, cb?)](#httppostpath-options-cb)
+     * [http.put(path, options?, cb?)](#httpputpath-options-cb)
+     * [http.delete(path, options?, cb?)](#httpdeletepath-options-cb)
+     * [http.patch(path, options?, cb?)](#httppatchpath-options-cb)
+     * [http.request(method, path, options?, cb?)](#httprequestmethod-path-options-cb)
+        * [httpResponse](#httpresponse)
+           * [httpResponse.headers](#httpresponseheaders)
+           * [httpResponse.status_code](#httpresponsestatus_code)
+           * [httpResponse.status](#httpresponsestatus)
+           * [httpResponse:read(n, cb?)](#httpresponsereadn-cb)
+           * [httpResponse:close(cb?)](#httpresponseclosecb)
+     * [http.create_server(addr, handler?)](#httpcreate_serveraddr-handler)
+        * [httpRequest](#httprequest)
+           * [httpRequest.headers](#httprequestheaders)
+           * [httpRequest.request_uri](#httprequestrequest_uri)
+           * [httpRequest.url](#httprequesturl)
+           * [httpRequest.method](#httprequestmethod)
+           * [httpRequest:read(n, cb?)](#httprequestreadn-cb)
+           * [httpRequest:close(cb?)](#httprequestclosecb)
+        * [httpResponseWriter](#httpresponsewriter)
+           * [httpResponseWriter:set_status(code)](#httpresponsewriterset_statuscode)
+           * [httpResponseWriter:set(name, value)](#httpresponsewritersetname-value)
+           * [httpResponseWriter:get(name)](#httpresponsewritergetname)
+           * [httpResponseWriter:write(body, cb)](#httpresponsewriterwritebody-cb)
+           * [httpResponseWriter:finish(cb)](#httpresponsewriterfinishcb)
+     * [httpServer:start(cb?)](#httpserverstartcb)
+     * [httpServer:stop()](#httpserverstop)
+* [Helpers](#helpers)
+     * [parallel_callback(list, cb?)](#parallel_callbacklist-cb)
+     * [series_callback(list, cb?)](#series_callbacklist-cb)
+     * [readall(reader, cb?)](#readallreader-cb)
+
+
+
 ## Core
 
 > cb means Callbacks: a function with sinagure `function(err, result) end`
@@ -68,16 +117,16 @@ Stat table
 #### fs.mkdir_all(path, cb?)
 > mkdir -p
 
-### fs.readfile(path, cb?)
+#### fs.readfile(path, cb?)
 > this function will stat a file first to get the file size and then read all datta.
 
 #### file:read(amount, cb?)
 > read give amount of data
 
-#### file:write(data, cb)
+#### file:write(data, cb?)
 > write data to file
 
-#### file:close(cb)
+#### file:close(cb?)
 > close file handler
 
 
