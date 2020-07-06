@@ -56,10 +56,28 @@ func lConnReadFrame(L *lua.LState) int {
 	conn := upConn(L)
 	cb := L.Get(2)
 	go func() {
-		frame, err := ws.ReadFrame(conn.conn)
-		if err != nil {
-			conn.ec.Call(core.Lua(cb, utils.LError(err)))
-			return
+		var (
+			frame ws.Frame
+			err   error
+		)
+		for {
+			frame, err = ws.ReadFrame(conn.conn)
+			if err != nil {
+				conn.ec.Call(core.Lua(cb, utils.LError(err)))
+				return
+			}
+			if frame.Header.OpCode == ws.OpBinary {
+				ws.WriteFrame(conn.conn, ws.NewTextFrame([]byte("binary frame is not supported")))
+				continue
+			}
+			if frame.Header.OpCode != ws.OpText {
+				continue
+			}
+			break
+		}
+
+		if frame.Header.Masked {
+			ws.Cipher(frame.Payload, frame.Header.Mask, 0)
 		}
 		conn.ec.Call(core.Lua(cb, lua.LNil, lua.LString(frame.Payload)))
 	}()
@@ -71,7 +89,7 @@ func lConnWriteFrame(L *lua.LState) int {
 	body := L.CheckString(2)
 	cb := L.Get(3)
 	core.GoFunctionCallback(conn.ec, cb, func(ctx context.Context) (lua.LValue, error) {
-		err := ws.WriteFrame(conn.conn, ws.NewFrame(ws.OpText, false, []byte(body)))
+		err := ws.WriteFrame(conn.conn, ws.NewTextFrame([]byte(body)))
 		return lua.LNil, err
 	})
 	return 0
