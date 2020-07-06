@@ -116,6 +116,9 @@ func (s *Server) StopLua(timeout time.Duration) error {
 }
 
 func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, proto *lua.FunctionProto) {
+	s.luaRunWg.Add(1)
+	defer s.luaRunWg.Done()
+
 	logger := s.logger.Named(fmt.Sprintf("lua-worker-%s-%d", name, id))
 	exit := make(chan time.Duration, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
@@ -134,6 +137,7 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 		GoStackSize:       256,
 		GoCallConcurrency: 4,
 		IsDebug:           s.isDebug,
+		Logger:            logger,
 	})
 
 	workDir, _ := os.Getwd()

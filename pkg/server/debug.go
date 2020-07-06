@@ -49,8 +49,10 @@ func (s *Server) RPCDebug(ctx context.Context, req *proto.DebugRequest) (res *pr
 
 			res = &proto.DebugResponse{Body: result}
 		}
+	default:
+		res = &proto.DebugResponse{Body: []byte(fmt.Sprintf("command '%s' not found", req.Name))}
 	}
-	return &proto.DebugResponse{Body: []byte(fmt.Sprintf("command '%s' not found", req.Name))}, nil
+	return res, err
 }
 
 func (s *Server) RPCDebugStream(req *proto.DebugRequest, stream proto.RPC_RPCDebugStreamServer) error {

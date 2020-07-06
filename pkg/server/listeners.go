@@ -1,18 +1,23 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 type ListenerManager struct {
 	mu        *sync.Mutex
+	logger    *zap.Logger
 	listeners map[string]map[string]net.Listener
 }
 
-func newListenerManager() *ListenerManager {
+func newListenerManager(logger *zap.Logger) *ListenerManager {
 	return &ListenerManager{
 		mu:        &sync.Mutex{},
+		logger:    logger,
 		listeners: map[string]map[string]net.Listener{},
 	}
 }
@@ -37,9 +42,13 @@ func (m *ListenerManager) Listen(network, addr string) (net.Listener, error) {
 func (m *ListenerManager) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for _, group := range m.listeners {
-		for _, lis := range group {
-			lis.Close()
+	for network, group := range m.listeners {
+		for addr, lis := range group {
+			if err := lis.Close(); err != nil {
+				m.logger.Error(fmt.Sprintf("unable to close listener %s@%s", network, addr))
+				continue
+			}
+			m.logger.Info(fmt.Sprintf("closed listener %s@%s", network, addr))
 		}
 	}
 

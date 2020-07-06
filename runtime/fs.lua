@@ -22,7 +22,7 @@ fs.readfile = function(path, cb)
             end
             file:read(stat.size, function(err, content)
                 file:close()
-               cb(err, content)
+                cb(err, content)
             end)
         end)
     end)

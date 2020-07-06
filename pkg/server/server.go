@@ -86,7 +86,7 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 
 		replybox:  newReplyBox(),
 		inbox:     newInbox(inboxQueue),
-		listeners: newListenerManager(),
+		listeners: newListenerManager(logger),
 
 		luaRunWg:       &sync.WaitGroup{},
 		isLuaReloading: atomic.NewBool(false),
