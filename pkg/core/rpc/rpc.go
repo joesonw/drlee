@@ -135,7 +135,7 @@ func lCall(L *lua.LState) int {
 	uv := up(L)
 	name := L.CheckString(1)
 	message := L.CheckAny(2)
-	reply := L.CheckFunction(3)
+	reply := L.Get(3)
 
 	body, err := json.Encode(message)
 	if err != nil {
@@ -170,7 +170,7 @@ func lBroadcast(L *lua.LState) int {
 	uv := up(L)
 	name := L.CheckString(1)
 	message := L.CheckAny(2)
-	reply := L.CheckFunction(3)
+	reply := L.Get(3)
 
 	body, err := json.Encode(message)
 	if err != nil {
