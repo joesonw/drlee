@@ -9,6 +9,7 @@ type Config struct {
 	Concurrency int            `yaml:"concurrency"`
 	Queue       QueueConfig    `yaml:"queue"`
 	Plugins     []PluginConfig `yaml:"plugins"`
+	ScriptArgs  []string       `yaml:"script-args"`
 }
 
 type PluginConfig struct {

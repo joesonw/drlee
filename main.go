@@ -21,10 +21,10 @@ func main() {
 		logger *zap.Logger
 		err    error
 	)
-	if strings.EqualFold(os.Getenv("ENV"), "production") {
-		logger, err = zap.NewProduction()
-	} else {
+	if strings.EqualFold(os.Getenv("DEBUG"), "true") {
 		logger, err = zap.NewDevelopment()
+	} else {
+		logger, err = zap.NewProduction()
 	}
 	if err != nil {
 		panic(err)

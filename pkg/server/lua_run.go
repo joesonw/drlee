@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	redis "github.com/go-redis/redis/v8"
@@ -18,6 +19,7 @@ import (
 	"github.com/joesonw/drlee/pkg/core"
 	coreEnv "github.com/joesonw/drlee/pkg/core/env"
 	coreFS "github.com/joesonw/drlee/pkg/core/fs"
+	coreGlobal "github.com/joesonw/drlee/pkg/core/global"
 	coreHTTP "github.com/joesonw/drlee/pkg/core/http"
 	coreJSON "github.com/joesonw/drlee/pkg/core/json"
 	coreLog "github.com/joesonw/drlee/pkg/core/log"
@@ -113,7 +115,6 @@ func (s *Server) StopLua(timeout time.Duration) error {
 	return nil
 }
 
-//nolint:unparam
 func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, proto *lua.FunctionProto) {
 	logger := s.logger.Named(fmt.Sprintf("lua-worker-%s-%d", name, id))
 	exit := make(chan time.Duration, 1)
@@ -124,18 +125,25 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 
 	ec := core.NewExecutionContext(L, core.Config{
 		OnError: func(err error) {
+			if s.isDebug {
+				debug.PrintStack()
+			}
 			logger.Error("uncaught lua error", zap.Error(err))
 		},
 		LuaStackSize:      128,
 		GoStackSize:       256,
 		GoCallConcurrency: 4,
+		IsDebug:           s.isDebug,
 	})
-	ec.Start()
 
+	workDir, _ := os.Getwd()
 	coreEnv.Open(L, ec, coreEnv.Env{
 		NodeName: s.members.LocalNode().Name,
 		WorkerID: id,
+		WorkDir:  workDir,
+		Args:     s.config.ScriptArgs,
 	})
+	coreGlobal.Open(L, ec, dir)
 	coreFS.Open(L, ec, func(name string, flag, perm int) (coreFS.File, error) {
 		return os.OpenFile(name, flag, os.FileMode(perm))
 	}, box)
@@ -167,8 +175,12 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	}
 	L.Push(fn)
 	if err := L.PCall(0, lua.MultRet, nil); err != nil {
+		if s.isDebug {
+			debug.PrintStack()
+		}
 		logger.Fatal("unable to run lua", zap.Error(err))
 	}
+	ec.Start()
 
 	<-exit
 	cancel()

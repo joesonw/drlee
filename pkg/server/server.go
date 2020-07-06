@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +57,7 @@ type Server struct {
 	luaExitChannelGroup []chan time.Duration
 
 	isLuaReloading *atomic.Bool
+	isDebug        bool
 }
 
 //nolint:gocritic
@@ -87,6 +90,7 @@ func New(config *Config, deferredMembers func() *memberlist.Memberlist, inboxQue
 
 		luaRunWg:       &sync.WaitGroup{},
 		isLuaReloading: atomic.NewBool(false),
+		isDebug:        strings.EqualFold(os.Getenv("DEBUG"), "true"),
 	}
 }
 

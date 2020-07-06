@@ -24,6 +24,7 @@ type Config struct {
 	GoCallConcurrency int
 	GoCallTimeout     time.Duration
 	LuaCallTimeout    time.Duration
+	IsDebug           bool
 }
 
 func NewExecutionContext(L *lua.LState, config Config) *ExecutionContext {
