@@ -15,7 +15,7 @@
                 p.innerText = str
                 display.appendChild(p)
             }
-            ws = new WebSocket('ws://localhost:8081')
+            ws = new WebSocket('{WS_ADDR}')
             append("connecting to server")
             ws.onclose = function () {
                 btn.style.display = 'block';

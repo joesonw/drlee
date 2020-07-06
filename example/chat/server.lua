@@ -49,6 +49,7 @@ end
 local indexHtml = ""
 fs.readfile(__dirname__ .. "/index.html", function(err, content)
     assert(err == nil, "unable to read index.html")
+    content = string.gsub(content, "{WS_ADDR}", "ws://localhost" .. env.args[2])
     indexHtml = content
 end)
 
