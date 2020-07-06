@@ -121,11 +121,8 @@ issues:
       linters:
         - gomnd
 run:
-  skip-dirs:
-    - test/testdata_etc
-    - internal/cache
-    - internal/renameio
-    - internal/robustio
+  deadline: 2m
+  skip-dirs: []
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 service:
