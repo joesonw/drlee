@@ -64,10 +64,10 @@ func lRedisNew(L *lua.LState) int {
 
 	client := uv.newClient(options)
 	obj := object.NewProtected(L, map[string]lua.LGFunction{"call": lCall}, map[string]lua.LValue{}, &uvClient{doable: client, ec: uv.ec})
-	guard := core.NewGuard("*redis.Client", func() {
+	resource := core.NewResource("*redis.Client", func() {
 		client.Close()
 	})
-	obj.SetFunction("close", stream.NewCloser(L, uv.ec, guard, client, true))
+	obj.SetFunction("close", stream.NewCloser(L, uv.ec, resource, client, true))
 	L.Push(obj.Value())
 	return 1
 }

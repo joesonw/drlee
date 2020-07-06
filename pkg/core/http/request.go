@@ -67,12 +67,12 @@ func lRequest(L *lua.LState) int {
 			return lua.LNil, err
 		}
 
-		guard := core.NewGuard("*http.Response", func() {
+		resource := core.NewResource("*http.Response", func() {
 			res.Body.Close()
 		})
-		client.ec.Leak(guard)
+		client.ec.Guard(resource)
 
-		return NewResponse(L, res, client.ec, guard).Value(), nil
+		return NewResponse(L, res, client.ec, resource).Value(), nil
 	})
 	return 0
 }

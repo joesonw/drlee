@@ -15,7 +15,7 @@ type uvRequest struct {
 	ec *core.ExecutionContext
 }
 
-func NewRequest(L *lua.LState, req *http.Request, ec *core.ExecutionContext, guard core.Guard) *object.Object {
+func NewRequest(L *lua.LState, req *http.Request, ec *core.ExecutionContext, resource core.Resource) *object.Object {
 	headers := map[string]string{}
 	for k := range req.Header {
 		headers[k] = req.Header.Get(k)
@@ -35,7 +35,7 @@ func NewRequest(L *lua.LState, req *http.Request, ec *core.ExecutionContext, gua
 
 	obj := object.NewProtected(L, map[string]lua.LGFunction{}, properties, ud)
 	obj.SetFunction("read", stream.NewReader(L, ec, req.Body, true))
-	obj.SetFunction("close", stream.NewCloser(L, ec, guard, req.Body, true))
+	obj.SetFunction("close", stream.NewCloser(L, ec, resource, req.Body, true))
 	return obj
 }
 
@@ -44,7 +44,7 @@ type uvResponse struct {
 	ec *core.ExecutionContext
 }
 
-func NewResponse(L *lua.LState, res *http.Response, ec *core.ExecutionContext, guard core.Guard) *object.Object {
+func NewResponse(L *lua.LState, res *http.Response, ec *core.ExecutionContext, resource core.Resource) *object.Object {
 	headers := map[string]string{}
 	for k := range res.Header {
 		headers[k] = res.Header.Get(k)
@@ -63,7 +63,7 @@ func NewResponse(L *lua.LState, res *http.Response, ec *core.ExecutionContext, g
 
 	obj := object.NewProtected(L, map[string]lua.LGFunction{}, properties, ud)
 	obj.SetFunction("read", stream.NewReader(L, ec, res.Body, true))
-	obj.SetFunction("close", stream.NewCloser(L, ec, guard, res.Body, true))
+	obj.SetFunction("close", stream.NewCloser(L, ec, resource, res.Body, true))
 	return obj
 }
 

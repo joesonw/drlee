@@ -68,17 +68,17 @@ func lOpen(L *lua.LState) int {
 			return lua.LNil, err
 		}
 
-		guard := core.NewGuard("sql.Conn", func() {
+		resource := core.NewResource("sql.Conn", func() {
 			conn.Close()
 		})
-		uv.ec.Leak(guard)
+		uv.ec.Guard(resource)
 
 		obj := object.NewProtected(L, connFuncs, map[string]lua.LValue{}, &uvConn{
 			ec:   uv.ec,
 			id:   uuid.NewV4().String(),
 			conn: conn,
 		})
-		obj.SetFunction("close", stream.NewCloser(L, uv.ec, guard, conn, true))
+		obj.SetFunction("close", stream.NewCloser(L, uv.ec, resource, conn, true))
 
 		return obj.Value(), nil
 	})

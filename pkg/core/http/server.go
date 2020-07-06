@@ -55,12 +55,12 @@ var serverFuncs = map[string]lua.LGFunction{
 }
 
 type uvServer struct {
-	listen  Listen
-	addr    string
-	server  *http.Server
-	ec      *core.ExecutionContext
-	handler *lua.LFunction
-	guard   core.Guard
+	listen   Listen
+	addr     string
+	server   *http.Server
+	ec       *core.ExecutionContext
+	handler  *lua.LFunction
+	resource core.Resource
 }
 
 func upServer(L *lua.LState) *uvServer {
@@ -73,14 +73,13 @@ func upServer(L *lua.LState) *uvServer {
 
 func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ch := make(chan error, 1)
-	guard := core.NewGuard("http.ResponseWriter", func() {
+	resource := core.NewResource("http.ResponseWriter", func() {
 		r.Body.Close()
 		ch <- nil
 	})
-	s.ec.Leak(guard)
+	s.ec.Guard(resource)
 	s.ec.Call(core.Scoped(func(L *lua.LState) error {
-		s.ec.Leak(guard)
-		req := NewRequest(L, r, s.ec, guard)
+		req := NewRequest(L, r, s.ec, resource)
 		res := NewResponseWriter(L, w, ch, s.ec)
 		s.ec.Call(core.LuaCatch(s.handler, func(err error) {
 			ch <- err
@@ -89,7 +88,7 @@ func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}))
 	err := <-ch
 	r.Body.Close()
-	guard.Cancel()
+	resource.Cancel()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error())) //nolint:errcheck
@@ -102,7 +101,7 @@ func lServerStart(L *lua.LState) int {
 		Handler:  server,
 		ErrorLog: nil,
 	}
-	server.guard = core.NewGuard("*http.Server", func() {
+	server.resource = core.NewResource("*http.Server", func() {
 		server.server.Close()
 	})
 
@@ -129,7 +128,7 @@ func lServerStart(L *lua.LState) int {
 
 func lServerStop(L *lua.LState) int {
 	server := upServer(L)
-	server.guard.Cancel()
+	server.resource.Cancel()
 	err := server.server.Close()
 	if err != nil {
 		L.Push(utils.LError(err))

@@ -9,13 +9,13 @@ import (
 )
 
 type ExecutionContext struct {
-	L         *lua.LState
-	config    Config
-	exit      chan struct{}
-	lCalls    chan LuaCall
-	gCalls    chan GoCall
-	guardPool *GuardPool
-	closed    bool
+	L            *lua.LState
+	config       Config
+	exit         chan struct{}
+	lCalls       chan LuaCall
+	gCalls       chan GoCall
+	resourcePool *ResourcePool
+	closed       bool
 }
 
 type Config struct {
@@ -31,12 +31,12 @@ type Config struct {
 
 func NewExecutionContext(L *lua.LState, config Config) *ExecutionContext {
 	return &ExecutionContext{
-		L:         L,
-		config:    config,
-		exit:      make(chan struct{}, 1),
-		lCalls:    make(chan LuaCall, config.LuaStackSize),
-		gCalls:    make(chan GoCall, config.GoStackSize),
-		guardPool: NewGuardPool(64),
+		L:            L,
+		config:       config,
+		exit:         make(chan struct{}, 1),
+		lCalls:       make(chan LuaCall, config.LuaStackSize),
+		gCalls:       make(chan GoCall, config.GoStackSize),
+		resourcePool: NewResourcePool(64),
 	}
 }
 
@@ -121,9 +121,9 @@ func (ec *ExecutionContext) callGo(call GoCall) {
 	}
 }
 
-func (ec *ExecutionContext) Leak(guard Guard) {
-	guard.setPool(ec.guardPool)
-	ec.guardPool.Insert(guard)
+func (ec *ExecutionContext) Guard(resource Resource) {
+	resource.setPool(ec.resourcePool)
+	ec.resourcePool.Insert(resource)
 }
 
 func (ec *ExecutionContext) Close() {
@@ -132,8 +132,8 @@ func (ec *ExecutionContext) Close() {
 		ec.exit <- struct{}{}
 	}
 
-	ec.guardPool.Close()
-	ec.guardPool.ForEach(func(g Guard) {
+	ec.resourcePool.Close()
+	ec.resourcePool.ForEach(func(g Resource) {
 		if ec.config.IsDebug {
 			ec.config.Logger.Debug("releasing " + g.Name())
 		}

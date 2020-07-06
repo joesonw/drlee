@@ -12,16 +12,16 @@ type uvCloser struct {
 	closer     io.Closer
 	ec         *core.ExecutionContext
 	startIndex int
-	guard      core.Guard
+	resource   core.Resource
 }
 
-func NewCloser(L *lua.LState, ec *core.ExecutionContext, guard core.Guard, closer io.Closer, isMethod ...bool) *lua.LFunction {
+func NewCloser(L *lua.LState, ec *core.ExecutionContext, resource core.Resource, closer io.Closer, isMethod ...bool) *lua.LFunction {
 	ud := L.NewUserData()
 	r := &uvCloser{
 		closer:     closer,
 		startIndex: 1,
 		ec:         ec,
-		guard:      guard,
+		resource:   resource,
 	}
 	ud.Value = r
 	if len(isMethod) > 0 && isMethod[0] {
@@ -41,7 +41,7 @@ func lClose(L *lua.LState) int {
 	cb := L.Get(L.GetTop())
 	core.GoFunctionCallback(closer.ec, cb, func(ctx context.Context) (lua.LValue, error) {
 		err := closer.closer.Close()
-		closer.guard.Cancel()
+		closer.resource.Cancel()
 		return lua.LNil, err
 	})
 

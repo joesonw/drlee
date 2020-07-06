@@ -76,10 +76,10 @@ func lOpen(L *lua.LState) int {
 			return lua.LNil, err
 		}
 
-		guard := core.NewGuard("*os.File: "+path.String(), func() {
+		resource := core.NewResource("*os.File: "+path.String(), func() {
 			file.Close()
 		})
-		fs.ec.Leak(guard)
+		fs.ec.Guard(resource)
 
 		f := &uvFile{
 			File: file,
@@ -89,7 +89,7 @@ func lOpen(L *lua.LState) int {
 		obj := object.NewProtected(L, fileFuncs, map[string]lua.LValue{}, f)
 		obj.SetFunction("read", stream.NewReader(L, fs.ec, file, true))
 		obj.SetFunction("write", stream.NewWriter(L, fs.ec, file, true))
-		obj.SetFunction("close", stream.NewCloser(L, fs.ec, guard, file, true))
+		obj.SetFunction("close", stream.NewCloser(L, fs.ec, resource, file, true))
 
 		return obj.Value(), nil
 	})

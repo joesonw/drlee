@@ -23,13 +23,13 @@ func newConn(L *lua.LState, ec *core.ExecutionContext, conn net.Conn) *object.Ob
 		"remote_addr": lua.LString(conn.RemoteAddr().String()),
 	}
 	obj := object.NewProtected(L, connFuncs, properties, c)
-	guard := core.NewGuard("net.Conn", func() {
+	resource := core.NewResource("net.Conn", func() {
 		conn.Close()
 	})
-	ec.Leak(guard)
+	ec.Guard(resource)
 	obj.SetFunction("write", stream.NewWriter(L, ec, conn, true))
 	obj.SetFunction("read", stream.NewReader(L, ec, conn, true))
-	obj.SetFunction("close", stream.NewCloser(L, ec, guard, conn, true))
+	obj.SetFunction("close", stream.NewCloser(L, ec, resource, conn, true))
 	return obj
 }
 

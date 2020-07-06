@@ -6,7 +6,7 @@ go_library(
         "call.go",
         "callback.go",
         "execution_context.go",
-        "guard.go",
+        "resource.go",
         "upvalue.go",
     ],
     importpath = "github.com/joesonw/drlee/pkg/core",
@@ -24,7 +24,7 @@ go_test(
     srcs = [
         "core_test.go",
         "execution_context_test.go",
-        "guard_test.go",
+        "resource_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
