@@ -67,7 +67,7 @@ func lConnReadFrame(L *lua.LState) int {
 				return
 			}
 			if frame.Header.OpCode == ws.OpBinary {
-				ws.WriteFrame(conn.conn, ws.NewTextFrame([]byte("binary frame is not supported")))
+				_ = ws.WriteFrame(conn.conn, ws.NewTextFrame([]byte("binary frame is not supported")))
 				continue
 			}
 			if frame.Header.OpCode != ws.OpText {

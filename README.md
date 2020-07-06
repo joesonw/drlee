@@ -136,8 +136,6 @@ Stat table
 local http = require "http"
 ```
 
-###
-
 #### http.get(path, options?, cb?)
 #### http.post(path, options?, cb?)
 #### http.put(path, options?, cb?)
@@ -225,6 +223,8 @@ end)
 
 #### httpServer:stop()
 > stop the http server
+
+## WebSocket
 
 ## Helpers
 
