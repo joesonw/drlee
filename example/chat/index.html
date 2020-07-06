@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Chat Example</title>
+    <script>
+        var ws;
+        function connect() {
+            var display = document.getElementById('display-box');
+            var btn = document.getElementById('btn-connect');
+            var send = document.getElementById('send-box')
+            btn.style.display = 'none';
+            function append(str) {
+                var p = document.createElement('p');
+                p.innerText = str
+                display.appendChild(p)
+            }
+            ws = new WebSocket('ws://localhost:8081')
+            append("connecting to server")
+            ws.onclose = function () {
+                btn.style.display = 'block';
+                send.style.display = 'none';
+                append("server closed")
+            }
+            ws.onopen = function () {
+                append("server connected")
+                send.style.display = 'block';
+            }
+            ws.onmessage = function (e) {
+                append(e.data)
+            }
+        }
+
+        function send() {
+            var send = document.getElementById('input-box')
+            ws.send(JSON.stringify({ type: 'message', body: send.value }));
+            send.value = '';
+        }
+    </script>
+</head>
+<body>
+    <div>
+        <button id="btn-connect" onclick="connect()">Connect</button>
+        <div id="send-box" style="display:none">
+            <input type="text" id="input-box" />
+            <button onclick="send()">Send</button>
+        </div>
+    </div>
+    <div id="display-box">
+
+    </div>
+</body>
+</html>

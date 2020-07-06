@@ -1,0 +1,14 @@
+node-name: a
+concurrency: 1
+gossip:
+  addr: 127.0.0.1
+  port: 4100
+queue:
+  dir: /tmp/queue
+rpc:
+  addr: 127.0.0.1
+  port: 4101
+  reply-concurrency: 1
+script-args:
+  - :8080
+  - :8081
