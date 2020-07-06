@@ -12,7 +12,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-type Listen func(addr string) (net.Listener, error)
+type Listen func(network, addr string) (net.Listener, error)
 
 type uvCreateServer struct {
 	listen Listen
@@ -107,7 +107,7 @@ func lServerStart(L *lua.LState) int {
 	})
 
 	core.GoFunctionCallback(server.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
-		lis, err := server.listen(server.addr)
+		lis, err := server.listen("tcp", server.addr)
 		if err != nil {
 			return lua.LNil, err
 		}

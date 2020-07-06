@@ -1340,3 +1340,24 @@ go_repository(
     sum = "h1:QHIUxTX1ISuAv9dD2wJ9HWQVuWDX/Zc0PfeC2tjc4rU=",
     version = "v1.1.0",
 )
+
+go_repository(
+    name = "com_github_gobwas_httphead",
+    importpath = "github.com/gobwas/httphead",
+    sum = "h1:s+21KNqlpePfkah2I+gwHF8xmJWRjooY+5248k6m4A0=",
+    version = "v0.0.0-20180130184737-2c6c146eadee",
+)
+
+go_repository(
+    name = "com_github_gobwas_pool",
+    importpath = "github.com/gobwas/pool",
+    sum = "h1:xfeeEhW7pwmX8nuLVlqbzVc7udMDrwetjEv+TZIz1og=",
+    version = "v0.2.1",
+)
+
+go_repository(
+    name = "com_github_gobwas_ws",
+    importpath = "github.com/gobwas/ws",
+    sum = "h1:ZOigqf7iBxkA4jdQ3am7ATzdlOFp9YzA6NmuvEEZc9g=",
+    version = "v1.0.3",
+)

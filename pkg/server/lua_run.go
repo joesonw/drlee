@@ -25,6 +25,7 @@ import (
 	coreRPC "github.com/joesonw/drlee/pkg/core/rpc"
 	coreSQL "github.com/joesonw/drlee/pkg/core/sql"
 	coreTime "github.com/joesonw/drlee/pkg/core/time"
+	coreWebsocket "github.com/joesonw/drlee/pkg/core/websocket"
 	"github.com/joesonw/drlee/pkg/runtime"
 	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
@@ -133,14 +134,11 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	coreFS.Open(L, ec, func(name string, flag, perm int) (coreFS.File, error) {
 		return os.OpenFile(name, flag, os.FileMode(perm))
 	}, box)
-	coreHTTP.Open(L, ec, box, &http.Client{}, func(addr string) (net.Listener, error) {
-		return s.listeners.Listen("tcp", addr)
-	})
+	coreHTTP.Open(L, ec, box, &http.Client{}, s.listeners.Listen)
 	coreJSON.Open(L)
 	coreLog.Open(L, logger)
-	coreNetwork.Open(L, ec, func(network, addr string) (net.Listener, error) {
-		return s.listeners.Listen(network, addr)
-	}, net.Dial)
+	coreNetwork.Open(L, ec, s.listeners.Listen, net.Dial)
+	coreWebsocket.Open(L, ec, s.listeners.Listen, net.Dial)
 	coreRedis.Open(L, ec, func(options *redis.Options) coreRedis.Doable {
 		return redis.NewClient(options)
 	})

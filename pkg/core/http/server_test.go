@@ -45,8 +45,8 @@ var _ = Describe("HTTP Server", func() {
 			end)
 			`,
 			func(L *lua.LState, ec *core.ExecutionContext) {
-				utils.RegisterLuaModuleFunctions(L, "_http", openServer(L, ec, func(addr string) (net.Listener, error) {
-					lis, err := net.Listen("tcp", addr)
+				utils.RegisterLuaModuleFunctions(L, "_http", openServer(L, ec, func(network, addr string) (net.Listener, error) {
+					lis, err := net.Listen(network, addr)
 					go func() {
 						defer GinkgoRecover()
 						time.Sleep(time.Second)
@@ -91,8 +91,8 @@ var _ = Describe("HTTP Server", func() {
 		defer ec.Close()
 
 		ch := make(chan *http.Response, 1)
-		utils.RegisterLuaModuleFunctions(L, "_http", openServer(L, ec, func(addr string) (net.Listener, error) {
-			lis, err := net.Listen("tcp", addr)
+		utils.RegisterLuaModuleFunctions(L, "_http", openServer(L, ec, func(network, addr string) (net.Listener, error) {
+			lis, err := net.Listen(network, addr)
 			go func() {
 				defer GinkgoRecover()
 				time.Sleep(time.Second)

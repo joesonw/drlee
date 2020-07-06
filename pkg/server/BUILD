@@ -39,6 +39,7 @@ go_library(
         "//pkg/core/rpc:go_default_library",
         "//pkg/core/sql:go_default_library",
         "//pkg/core/time:go_default_library",
+        "//pkg/core/websocket:go_default_library",
         "//pkg/plugin:go_default_library",
         "//pkg/runtime:go_default_library",
         "//pkg/utils:go_default_library",
