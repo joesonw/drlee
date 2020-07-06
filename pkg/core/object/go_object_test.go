@@ -80,7 +80,6 @@ var _ = Describe("GoObject", func() {
 		})
 
 		It("should not change properties", func() {
-			Skip("")
 			test.Sync(`
 				obj.hello = 123
 				result = json_encode(obj)
