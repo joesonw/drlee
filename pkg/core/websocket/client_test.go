@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/gobwas/ws"
+
 	"github.com/joesonw/drlee/pkg/core"
 	"github.com/joesonw/drlee/pkg/core/test"
 	. "github.com/onsi/ginkgo"
@@ -22,21 +24,25 @@ var _ = Describe("Client", func() {
 			conn, err = lis.Accept()
 			Expect(err).To(BeNil())
 
-			b := make([]byte, 5)
-			_, err = conn.Read(b)
+			_, err = ws.DefaultUpgrader.Upgrade(conn)
 			Expect(err).To(BeNil())
-			Expect(string(b)).To(Equal("hello"))
-			_, err = conn.Write([]byte("world"))
+
+			var frame ws.Frame
+			frame, err = ws.ReadFrame(conn)
+			Expect(err).To(BeNil())
+			Expect(string(frame.Payload)).To(Equal("hello"))
+
+			err = ws.WriteFrame(conn, ws.NewFrame(ws.OpText, false, []byte("world")))
 			Expect(err).To(BeNil())
 		}()
 
 		test.Async(`
-			local network = require "network"
-			network.dial("tcp", "localhost:80", function(err, conn)
+			local websocket = require "websocket"
+			websocket.dial("ws://localhost:80", function(err, conn)
 				assert(err == nil, "err")
-				conn:write("hello", function(err)
+				conn:write_frame("hello", function(err)
 					assert(err == nil, "err")
-					conn:read(5, function(err, body)
+					conn:read_frame(function(err, body)
 						assert(err == nil, "err")
 						assert(body == "world", "body")
 						assert(err == nil, "err")

@@ -117,9 +117,7 @@ func lServerStart(L *lua.LState) int {
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					return
 				}
-				server.ec.Call(core.Scoped(func(L *lua.LState) error {
-					return err
-				}))
+				core.RaiseError(server.ec, err)
 			}
 		}()
 

@@ -1,10 +1,12 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
 
+	"github.com/gobwas/ws"
 	"github.com/joesonw/drlee/pkg/core"
 	"github.com/joesonw/drlee/pkg/core/test"
 	. "github.com/onsi/ginkgo"
@@ -16,12 +18,13 @@ var _ = Describe("Server", func() {
 	It("should serve", func() {
 		done := make(chan struct{}, 1)
 		test.Async(`
-			local network = require "network"
-			local server = network.create_server("tcp", "localhost:0", function (conn)
-				conn:read(5, function(err, body)
+			local websocket = require "websocket"
+			local server = websocket.create_server("localhost:0", function (conn)
+				conn:read_frame(function(err, body)
 					assert(err == nil, "err")
 					assert(body == "hello", "body")
-					conn:write("world", function(err)
+					conn:write_frame("world", function(err)
+						assert(err == nil, "err")
 						assert(err == nil, "err")
 						conn:close(function(err)
 							assert(err == nil, "err")
@@ -42,14 +45,14 @@ var _ = Describe("Server", func() {
 						time.Sleep(time.Second)
 						addr := lis.Addr().(*net.TCPAddr)
 						var conn net.Conn
-						conn, err = net.Dial(network, fmt.Sprintf("localhost:%d", addr.Port))
+						conn, _, _, err = ws.Dial(context.TODO(), fmt.Sprintf("ws://localhost:%d", addr.Port))
 						Expect(err).To(BeNil())
-						_, err = conn.Write([]byte("hello"))
+						err = ws.WriteFrame(conn, ws.NewFrame(ws.OpText, false, []byte("hello")))
 						Expect(err).To(BeNil())
-						b := make([]byte, 5)
-						_, err = conn.Read(b)
+						var frame ws.Frame
+						frame, err = ws.ReadFrame(conn)
 						Expect(err).To(BeNil())
-						Expect(string(b)).To(Equal("world"))
+						Expect(string(frame.Payload)).To(Equal("world"))
 						done <- struct{}{}
 					}()
 					return lis, err

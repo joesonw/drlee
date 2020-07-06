@@ -12,6 +12,9 @@ require (
 	github.com/go-redis/redis/v8 v8.0.0-beta.5
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gobuffalo/packr v1.30.1
+	github.com/gobwas/httphead v0.0.0-20180130184737-2c6c146eadee // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.0.3
 	github.com/golang/protobuf v1.4.2
 	github.com/hashicorp/memberlist v0.2.2
 	github.com/lib/pq v1.7.0

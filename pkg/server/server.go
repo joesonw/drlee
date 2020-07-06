@@ -146,6 +146,6 @@ func (s *Server) handleNode(node *memberlist.Node) *Endpoint {
 
 func (s *Server) getRemoteRPC(nodeName string) proto.RPCClient {
 	s.endpointMu.RLock()
-	defer s.endpointMu.RUnlock() //nolint:gocritic
+	defer s.endpointMu.RUnlock()
 	return s.endpointRPCs[nodeName]
 }

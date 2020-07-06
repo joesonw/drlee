@@ -20,3 +20,9 @@ func GoFunctionCallback(ec *ExecutionContext, cb lua.LValue, fn GoCallback) {
 		return nil
 	}))
 }
+
+func RaiseError(ec *ExecutionContext, err error) {
+	ec.Call(Scoped(func(L *lua.LState) error {
+		return err
+	}))
+}

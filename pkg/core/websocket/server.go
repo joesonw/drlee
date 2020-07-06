@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/gobwas/ws"
 	"github.com/joesonw/drlee/pkg/core"
 	"github.com/joesonw/drlee/pkg/core/object"
 	lua "github.com/yuin/gopher-lua"
@@ -33,13 +34,11 @@ func lCreateServer(L *lua.LState) int {
 		L.RaiseError("createServer expected")
 	}
 
-	network := L.CheckString(1)
-	addr := L.CheckString(2)
-	handler := L.CheckFunction(3)
+	addr := L.CheckString(1)
+	handler := L.CheckFunction(2)
 
 	s := &uvServer{
 		handler: handler,
-		network: network,
 		addr:    addr,
 		listen:  cserver.listen,
 		ec:      cserver.ec,
@@ -56,7 +55,6 @@ var serverFuncs = map[string]lua.LGFunction{
 
 type uvServer struct {
 	listen  Listen
-	network string
 	addr    string
 	ec      *core.ExecutionContext
 	handler *lua.LFunction
@@ -74,13 +72,12 @@ func upServer(L *lua.LState) *uvServer {
 func lServerStart(L *lua.LState) int {
 	server := upServer(L)
 
+	upgrader := ws.Upgrader{}
 	core.GoFunctionCallback(server.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
-		lis, err := server.listen(server.network, server.addr)
+		lis, err := server.listen("tcp", server.addr)
 		if err != nil {
 			return lua.LNil, err
 		}
-
-		server.exit = make(chan struct{}, 1)
 		go func() {
 			for {
 				select {
@@ -93,7 +90,14 @@ func lServerStart(L *lua.LState) int {
 					core.RaiseError(server.ec, fmt.Errorf("unable to accept connection: %w", err))
 					return
 				}
-				c := newConn(L, server.ec, conn)
+
+				_, err = upgrader.Upgrade(conn)
+				if err != nil {
+					core.RaiseError(server.ec, fmt.Errorf("unable to upgrade connection: %w", err))
+					return
+				}
+
+				c := newConn(L, server.ec, conn, ws.StateServerSide)
 				server.ec.Call(core.Lua(server.handler, c.Value()))
 			}
 		}()
