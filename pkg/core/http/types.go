@@ -50,9 +50,9 @@ func NewResponse(L *lua.LState, res *http.Response, ec *core.ExecutionContext, g
 		headers[k] = res.Header.Get(k)
 	}
 	properties := map[string]lua.LValue{
-		"headers":    helpers.MustMarshal(L, headers),
-		"statusCode": lua.LNumber(res.StatusCode),
-		"status":     lua.LString(res.Status),
+		"headers":     helpers.MustMarshal(L, headers),
+		"status_code": lua.LNumber(res.StatusCode),
+		"status":      lua.LString(res.Status),
 	}
 
 	ud := L.NewUserData()

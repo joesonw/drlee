@@ -87,7 +87,7 @@ var _ = Describe("Request", func() {
 			local http = require "http"
 			http.get("http://example.com", function (err, res)
 				assert(err == nil, "error")
-				assert(res.statusCode == 200, "statusCode")
+				assert(res.status_code == 200, "statusCode")
 				assert(res.status == "200 OK", "status")
 				assert(res.headers.Hello == "world", "headers")
 				readall(res, function(err, body)
@@ -128,7 +128,7 @@ var _ = Describe("Request", func() {
 			http.post("http://example.com", {body="test"}, function(err, res)
 				assert(err == nil, "error")
 				assert(res.status == "200 OK", "status")
-				assert(res.statusCode == 200, "statusCode")
+				assert(res.status_code == 200, "statusCode")
 
 				readall(res, function(err, body)
 					assert(body == "OK", "body")
