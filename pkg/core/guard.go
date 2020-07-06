@@ -69,6 +69,10 @@ func (s *GuardPool) Remove(node *guardNode) {
 	if next != nil {
 		next.prev = prev
 	}
+
+	if node == s.tail {
+		s.tail = nil
+	}
 	<-s.exclusive
 }
 
@@ -93,6 +97,7 @@ func (s *GuardPool) Close() {
 type Guard interface {
 	Release()
 	Cancel()
+	Name() string
 	setNode(*guardNode)
 	setPool(*GuardPool)
 }
@@ -127,6 +132,10 @@ func (g *guard) Release() {
 			g.afterRelease()
 		}
 	}
+}
+
+func (g *guard) Name() string {
+	return g.name
 }
 
 func (g *guard) setNode(node *guardNode) {
