@@ -223,8 +223,10 @@ func lGet(L *lua.LState) int {
 		L.Push(value)
 	} else if fn, ok := object.methods[key]; ok {
 		L.Push(fn)
-	} else {
+	} else if !object.readonly {
 		L.Push(object.table.RawGet(rawKey))
+	} else {
+		L.Push(lua.LNil)
 	}
 	return 1
 }

@@ -30,6 +30,7 @@ go_library(
     deps = [
         "//_proto:go_default_library",
         "//pkg/core:go_default_library",
+        "//pkg/core/env:go_default_library",
         "//pkg/core/fs:go_default_library",
         "//pkg/core/http:go_default_library",
         "//pkg/core/json:go_default_library",

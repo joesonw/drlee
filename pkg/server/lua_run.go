@@ -16,6 +16,7 @@ import (
 	redis "github.com/go-redis/redis/v8"
 	"github.com/gobuffalo/packr"
 	"github.com/joesonw/drlee/pkg/core"
+	coreEnv "github.com/joesonw/drlee/pkg/core/env"
 	coreFS "github.com/joesonw/drlee/pkg/core/fs"
 	coreHTTP "github.com/joesonw/drlee/pkg/core/http"
 	coreJSON "github.com/joesonw/drlee/pkg/core/json"
@@ -131,6 +132,10 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	})
 	ec.Start()
 
+	coreEnv.Open(L, ec, coreEnv.Env{
+		NodeName: s.members.LocalNode().Name,
+		WorkerID: id,
+	})
 	coreFS.Open(L, ec, func(name string, flag, perm int) (coreFS.File, error) {
 		return os.OpenFile(name, flag, os.FileMode(perm))
 	}, box)

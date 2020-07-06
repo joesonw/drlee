@@ -2,11 +2,19 @@ package utils
 
 import lua "github.com/yuin/gopher-lua"
 
+func RegisterLuaModuleObject(L *lua.LState, name string, object lua.LValue) {
+	tb := L.FindTable(L.Get(lua.RegistryIndex).(*lua.LTable), "_LOADED", 1)
+	mod := L.GetField(tb, name)
+	if mod == lua.LNil {
+		L.SetField(tb, name, object)
+	}
+}
+
 func RegisterLuaModule(L *lua.LState, name string, funcs map[string]lua.LGFunction, upvalues ...lua.LValue) {
 	tb := L.FindTable(L.Get(lua.RegistryIndex).(*lua.LTable), "_LOADED", 1)
 	mod := L.GetField(tb, name)
 	if mod.Type() != lua.LTTable {
-		newmod := L.FindTable(L.Get(lua.GlobalsIndex).(*lua.LTable), name, len(funcs))
+		newmod := L.FindTable(tb.(*lua.LTable), name, len(funcs))
 		if newmodtb, ok := newmod.(*lua.LTable); !ok {
 			L.RaiseError("name conflict for module(%v)", name)
 		} else {
@@ -22,7 +30,7 @@ func RegisterLuaModuleFunctions(L *lua.LState, name string, funcs map[string]*lu
 	tb := L.FindTable(L.Get(lua.RegistryIndex).(*lua.LTable), "_LOADED", 1)
 	mod := L.GetField(tb, name)
 	if mod.Type() != lua.LTTable {
-		newmod := L.FindTable(L.Get(lua.GlobalsIndex).(*lua.LTable), name, len(funcs))
+		newmod := L.FindTable(tb.(*lua.LTable), name, len(funcs))
 		if newmodtb, ok := newmod.(*lua.LTable); !ok {
 			L.RaiseError("name conflict for module(%v)", name)
 		} else {
