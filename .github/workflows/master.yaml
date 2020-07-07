@@ -40,14 +40,16 @@ jobs:
       - name: Build
         env:
           BAZEL_BIN: bazelisk
-        run: ./hack/build_binaries.sh
+        run: |
+          ./hack/build_binaries.sh
+          ls -al binaries
 
       - name: Publish
         env:
           BINTRAY_API_KEY: ${{ secrets.BINTRAY_API_KEY }}
         run: |
-          curl -T binaries/drlee-darwin-amd64 -ujoesonw:${BINTRAY_API_KEY} https://api.bintray.com/content/joesonw/drlee/drlee/latest/drlee-darwin-amd64?publish=1&override=1
-          curl -T binaries/drlee-linux-amd64 -ujoesonw:${BINTRAY_API_KEY} https://api.bintray.com/content/joesonw/drlee/drlee/latest/drlee-linux-amd64?publish=1&override=1
-          curl -T binaries/drlee-windows-amd64.exe -ujoesonw:${BINTRAY_API_KEY} https://api.bintray.com/content/joesonw/drlee/drlee/latest/drlee-windows-amd64.exe?publish=1&override=1
+          curl -T binaries/drlee-darwin-amd64 -ujoesonw:${BINTRAY_API_KEY} -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" https://api.bintray.com/content/joesonw/drlee/drlee/latest/drlee-darwin-amd64
+          curl -T binaries/drlee-linux-amd64 -ujoesonw:${BINTRAY_API_KEY} -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" https://api.bintray.com/content/joesonw/drlee/drlee/latest/drlee-linux-amd64
+          curl -T binaries/drlee-windows-amd64.exe -ujoesonw:${BINTRAY_API_KEY} -H "X-Bintray-Publish: 1" -H "X-Bintray-Override: 1" https://api.bintray.com/content/joesonw/drlee/drlee/latest/drlee-windows-amd64.exe
 
 
