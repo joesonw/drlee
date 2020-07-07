@@ -89,7 +89,7 @@ func upTicker(L *lua.LState) *lTicker {
 }
 
 var tickerFuncs = map[string]lua.LGFunction{
-	"nextTick": tickerNextTick,
+	"next_tick": tickerNextTick,
 	"stop":     tickerStop,
 }
 
