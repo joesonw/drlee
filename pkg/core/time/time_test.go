@@ -78,10 +78,10 @@ var _ = Describe("time", func() {
 				local time = require "time"
 				ticker = time.tick(1000)
 				start = time.now()
-				ticker:nextTick(function (_, now)
+				ticker:nextTick(function (now)
 					assert((now.milliunix - start.milliunix) >= 1000)
 					assert((now.milliunix - start.milliunix) < 1010)
-					ticker:nextTick(function (_, now)
+					ticker:nextTick(function (now)
 						assert((now.milliunix - start.milliunix) >= 2000)
 						assert((now.milliunix - start.milliunix) < 2020)
 						ticker:stop()

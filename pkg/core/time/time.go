@@ -1,7 +1,6 @@
 package time
 
 import (
-	"context"
 	"time"
 
 	"github.com/joesonw/drlee/pkg/core"
@@ -49,10 +48,10 @@ func lTimeout(L *lua.LState) int {
 	uv := up(L)
 	ms := params.Number()
 	cb := params.Check(L, 1, 1, "time.timeout(ms, cb?)", ms)
-	core.GoFunctionCallback(uv.ec, cb, func(ctx context.Context) (lua.LValue, error) {
+	go func() {
 		time.Sleep(time.Millisecond * time.Duration(ms.Int64()))
-		return lua.LNil, nil
-	})
+		uv.ec.Call(core.Lua(cb))
+	}()
 	return 0
 }
 
@@ -97,10 +96,10 @@ var tickerFuncs = map[string]lua.LGFunction{
 func tickerNextTick(L *lua.LState) int {
 	ticker := upTicker(L)
 	cb := L.Get(2)
-	core.GoFunctionCallback(ticker.ec, cb, func(ctx context.Context) (lua.LValue, error) {
+	go func() {
 		timestamp := <-ticker.goTicker.C
-		return New(L, timestamp).Value(), nil
-	})
+		ticker.ec.Call(core.Lua(cb, New(L, timestamp).Value()))
+	}()
 	return 0
 }
 
