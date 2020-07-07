@@ -3,19 +3,53 @@ local rpc = require "rpc"
 local env = require "env"
 local fs = require "fs"
 local http = require "http"
+local network = require "network"
 
 local connections = {}
 
-function handleError(conn, err)
+function wrap_tcp_conn(conn, delimiter)
+    buf = ""
+    local size = 64
+    local c = {}
+    function c:read_frame(cb)
+        conn:read(64, function(err, b)
+            if err ~= nil then
+                return cb(err)
+            end
+            buf = buf .. b
+            while true do
+                local idx = string.find(buf, delimiter)
+                if idx == nil then
+                    break
+                end
+                local b = buf:sub(0, idx)
+                buf = buf:sub(idx)
+                cb(nil, b)
+            end
+        end)
+    end
+    
+    function c:write_frame(frame, cb)
+        conn:write(frame .. "\n", cb)
+    end
+
+    function c:close(cb)
+        conn:close(cb)
+    end
+
+    return c 
+end
+
+function handle_error(conn, err)
     if err ~= nil then
         print(err)
-        closeConn(conn)
+        close_conn(conn)
         return true
     end
     return false
 end
 
-function closeConn(conn)
+function close_conn(conn)
     connections[conn.id] = nil
     conn:close()
     rpc.broadcast("leave", {
@@ -25,11 +59,13 @@ function closeConn(conn)
     })
 end
 
-function handleConn(conn)
+function handle_conn(conn)
     conn:read_frame(function(err, body)
-        if handleError(err) then return else end
+        if handle_error(err) then return else end
         if body == nil then
-            closeConn(conn)
+            return close_conn(conn)
+        end
+        if body == "" then
             return
         end
         local m = json_decode(body)
@@ -42,7 +78,7 @@ function handleConn(conn)
             })
         end
 
-        handleConn(conn)
+        handle_conn(conn)
     end)
 end
 
@@ -65,7 +101,7 @@ httpServer:start(function(err)
     print("http server started")
 end)
 
-local wsServer = websocket.create_server(env.args[2], function(conn)
+function handler(conn)
     conn.id = uuid()
     connections[conn.id] = conn
     rpc.broadcast("join", {
@@ -73,31 +109,41 @@ local wsServer = websocket.create_server(env.args[2], function(conn)
         worker_id = env.worker_id,
         id = conn.id,
     })
-    handleConn(conn)
-end)
+    handle_conn(conn)
+end
+
+local wsServer = websocket.create_server(env.args[2], handler)
 
 wsServer:start(function(err)
     assert(err == nil, "start websocket server error")
     print("websocket server started")
 end)
 
+local tcpServer = network.create_server("tcp", env.args[3], function(conn)
+    handler(wrap_tcp_conn(conn, "\n"))
+end)
+tcpServer:start(function(err)
+    assert(err == nil, "start tcp server error")
+    print("tcp server started")
+end)
+
 rpc.register("join", function(message, reply)
     for id, conn in pairs(connections) do
-        conn:write_frame("user " .. id .." joined from " .. message.worker_id .. "@" .. message.node, function(err) handleError(conn, err) end)
+        conn:write_frame("user " .. message.id .." joined from " .. message.worker_id .. "@" .. message.node, function(err) handle_error(conn, err) end)
     end
     reply()
 end)
 
 rpc.register("leave", function(message, reply)
     for id, conn in pairs(connections) do
-        conn:write_frame("user " .. id .." left from " .. message.worker_id .. "@" .. message.node, function(err) handleError(conn, err) end)
+        conn:write_frame("user " .. message.id .." left from " .. message.worker_id .. "@" .. message.node, function(err) handle_error(conn, err) end)
     end
     reply()
 end)
 
 rpc.register("message", function(message, reply)
     for id, conn in pairs(connections) do
-        conn:write_frame("user " .. id .." from " .. message.worker_id .. "@" .. message.node .. "  said: " .. message.message, function(err) handleError(conn, err) end)
+        conn:write_frame("user " .. message.id .." from " .. message.worker_id .. "@" .. message.node .. "  said: " .. message.message, function(err) handle_error(conn, err) end)
     end
     reply()
 end)
