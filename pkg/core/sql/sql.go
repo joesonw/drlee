@@ -90,6 +90,7 @@ var connFuncs = map[string]lua.LGFunction{
 	"query": lConnQuery,
 	"exec":  lConnExec,
 	"begin": lConnBegin,
+	"close": lConnClose,
 }
 
 type uvConn struct {
@@ -129,6 +130,14 @@ func lConnBegin(L *lua.LState) int {
 			tx:   tx,
 		})
 		return obj.Value(), nil
+	})
+	return 0
+}
+
+func lConnClose(L *lua.LState) int {
+	conn := upConn(L)
+	core.GoFunctionCallback(conn.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
+		return lua.LNil, conn.conn.Close()
 	})
 	return 0
 }
