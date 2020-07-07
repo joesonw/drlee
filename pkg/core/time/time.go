@@ -89,11 +89,11 @@ func upTicker(L *lua.LState) *lTicker {
 }
 
 var tickerFuncs = map[string]lua.LGFunction{
-	"next_tick": tickerNextTick,
-	"stop":     tickerStop,
+	"next_tick": lTickerNextTick,
+	"stop":      lTickerStop,
 }
 
-func tickerNextTick(L *lua.LState) int {
+func lTickerNextTick(L *lua.LState) int {
 	ticker := upTicker(L)
 	cb := L.Get(2)
 	go func() {
@@ -103,7 +103,7 @@ func tickerNextTick(L *lua.LState) int {
 	return 0
 }
 
-func tickerStop(L *lua.LState) int {
+func lTickerStop(L *lua.LState) int {
 	ticker := upTicker(L)
 	ticker.goTicker.Stop()
 	return 0
