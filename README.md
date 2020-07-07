@@ -13,7 +13,7 @@ I'm still doing extensive test on my own (with some real world scenarios). After
 drlee server a.yaml server.lua
 drlee server b.yaml server.lua --join localhost:4100
 ```
-now you can open two tabs each at [http://localhost:8080](http://localhost:8080) and [http://localhost:8080](http://localhost:8080) to send messages to each other.
+now you can open two tabs each at [http://localhost:8080](http://localhost:8080) and [http://localhost:8180](http://localhost:8180) to send messages to each other.
 
 you can also do `nc localhost 8082` or `nc localhost 8182` to join the same chat room, messages are delimited by `EOL`.
 
