@@ -10,11 +10,11 @@ ALL_ARCH=(amd64)
 BAZEL=${BAZEL_BIN:=bazel}
 HOSTOS="$(go env GOHOSTOS)"
 
-if [[ $HOSTOS == "linux" ]] then
+if [[ $HOSTOS == "linux" ]]; then
   HOSTOS="k8"
 fi
 
-if [[ $HOSTOS == "windows" ]] then
+if [[ $HOSTOS == "windows" ]]; then
   HOSTOS="x64_windows"
 fi
 
