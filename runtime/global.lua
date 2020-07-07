@@ -11,7 +11,7 @@ function parallel_callback(list, cb)
     local resolved = false
     local count = 0
     local resultList = {}
-    local wrappedCallback = function (err, result)
+    local wrappedCallback = function(err, result)
         if resolved then
             return
         end
@@ -33,7 +33,7 @@ end
 
 function series_callback(list, cb)
     local total = table.getn(list)
-    if total  == 0 then
+    if total == 0 then
         cb()
         return
     end
@@ -74,5 +74,3 @@ function readall(reader, cb)
     end
     reader:read(size, more)
 end
-
-

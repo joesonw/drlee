@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/joesonw/drlee/pkg/core/global"
+
 	"github.com/joesonw/drlee/pkg/core"
 	"github.com/joesonw/drlee/pkg/runtime"
 	. "github.com/onsi/gomega" //nolint:golint,stylecheck
@@ -33,6 +35,7 @@ func AsyncWithError(src string, open func(L *lua.LState, ec *core.ExecutionConte
 	ecUD := L.NewUserData()
 	ecUD.Value = ec
 	ec.Start()
+	global.Open(L, ec, "/tmp")
 	L.OpenLibs()
 
 	box := runtime.New()

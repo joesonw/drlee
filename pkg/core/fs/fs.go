@@ -54,6 +54,7 @@ func up(L *lua.LState) *uV {
 }
 
 var funcs = map[string]lua.LGFunction{
+	"flags":      lFlags,
 	"open":       lOpen,
 	"remove":     lRemove,
 	"remove_all": lRemoveAll,
@@ -61,6 +62,20 @@ var funcs = map[string]lua.LGFunction{
 	"read_dir":   lReadDir,
 	"mkdir":      lMkdir,
 	"mkdir_all":  lMkdirAll,
+}
+
+func lFlags(L *lua.LState) int {
+	tb := L.NewTable()
+	tb.RawSetString("READ_ONLY", lua.LNumber(os.O_RDONLY))
+	tb.RawSetString("WRITE_ONLY", lua.LNumber(os.O_WRONLY))
+	tb.RawSetString("READ_WRITE", lua.LNumber(os.O_RDWR))
+	tb.RawSetString("APPEND", lua.LNumber(os.O_APPEND))
+	tb.RawSetString("CREATE", lua.LNumber(os.O_CREATE))
+	tb.RawSetString("EXCL", lua.LNumber(os.O_EXCL))
+	tb.RawSetString("SYNC", lua.LNumber(os.O_SYNC))
+	tb.RawSetString("TRUNC", lua.LNumber(os.O_TRUNC))
+	L.Push(tb)
+	return 1
 }
 
 func lOpen(L *lua.LState) int {
@@ -73,6 +88,7 @@ func lOpen(L *lua.LState) int {
 	core.GoFunctionCallback(fs.ec, cb, func(ctx context.Context) (lua.LValue, error) {
 		file, err := fs.open(path.String(), flag.Int(), perm.Int())
 		if err != nil {
+			println(err.Error())
 			return lua.LNil, err
 		}
 

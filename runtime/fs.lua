@@ -8,6 +8,7 @@ fs.stat = _fs.stat
 fs.read_dir = _fs.read_dir
 fs.mkdir = _fs.mkdir
 fs.mkdir_all = _fs.mkdir_all
+fs.flags = _fs.flags()
 
 fs.readfile = function(path, cb)
     fs.stat(path, function(err, stat)

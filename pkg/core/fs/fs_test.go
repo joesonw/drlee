@@ -210,7 +210,7 @@ var _ = Describe("FS", func() {
 
 			runFSTest(fmt.Sprintf(`
 				local fs = require "fs"
-				fs.open("%s", 513, 511, function(err, file)
+				fs.open("%s", bit_or(fs.flags.CREATE, fs.flags.READ_WRITE), 511, function(err, file)
 					assert(err == nil, "open err")
 					file:write("hello world", function(err)
 						assert(err == nil, "write err")
@@ -229,7 +229,7 @@ var _ = Describe("FS", func() {
 			ch := make(chan struct{}, 1)
 			test.Async(fmt.Sprintf(`
 				local fs = require "fs"
-				fs.open("%s", 513, 511, function(err, file)
+				fs.open("%s", bit_or(fs.flags.CREATE, fs.flags.READ_WRITE), 511, function(err, file)
 					assert(err == nil, "open err")
 					file:close(function(err)
 						assert(err == nil, "close err")
