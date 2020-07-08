@@ -4,12 +4,14 @@ import (
 	"go.uber.org/atomic"
 )
 
+// resourceNode node used in ResourcePool linked list
 type resourceNode struct {
 	next     *resourceNode
 	prev     *resourceNode
 	resource Resource
 }
 
+// ResourcePool manages resources
 type ResourcePool struct {
 	exit      chan struct{}
 	cache     chan Resource
@@ -49,10 +51,12 @@ func NewResourcePool(size int) *ResourcePool {
 	return p
 }
 
+// Insert insert a resource into queue (it's not immediately inserted into the actual list, a single go routine will process insert request)
 func (p *ResourcePool) Insert(call Resource) {
 	p.cache <- call
 }
 
+// Remove remove a resource from list
 func (p *ResourcePool) Remove(node *resourceNode) {
 	if node == nil {
 		return
