@@ -122,7 +122,8 @@ issues:
         - gomnd
 run:
   deadline: 2m
-  skip-dirs: []
+  skip-dirs:
+    benchmarks
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 service:
