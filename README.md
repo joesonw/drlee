@@ -28,28 +28,36 @@ notice you were connecting to two different nodes, but the built in cross-node R
 # BenchmarkS
 [http benchmark test](https://github.com/joesonw/drlee/tree/master/benchmarks/http)
 ```
- go test -run=Bench -bench=. ./benchmarks/http/...
+go test -bench=BenchmarkLua -run=^$ ./benchmarks/http/...
 goos: darwin
 goarch: amd64
 pkg: github.com/joesonw/drlee/benchmarks/http
-BenchmarkLua-12                               	   10236	    107047 ns/op
-BenchmarkLuaParallel4-12                      	   10690	    100500 ns/op
-BenchmarkLuaSleep-12                          	   10948	    100196 ns/op
-BenchmarkLuaSleepParallel4-12                 	   10430	    102018 ns/op
-BenchmarkLuaConcurrent4-12                    	   17148	    131602 ns/op
-BenchmarkLuaParallel4Concurrent4-12           	    8458	    210623 ns/op
-BenchmarkLuaSleepConcurrent4-12               	    3180	    321741 ns/op
-BenchmarkLuaSleepParallel4Concurrent4-12      	    2889	    347221 ns/op
-BenchmarkPlain-12                             	     690	   1686879 ns/op
-BenchmarkPlainParallel4-12                    	     595	   2042301 ns/op
-BenchmarkPlainSleep-12                        	       9	 119222153 ns/op
-BenchmarkPlainSleepParallel4-12               	       9	 120673633 ns/op
-BenchmarkPlainConcurrent4-12                  	     914	   1375349 ns/op
-BenchmarkPlainParallel4Concurrent4-12         	     690	   1680510 ns/op
-BenchmarkPlainSleepConcurrent4-12             	      38	  32632435 ns/op
-BenchmarkPlainSleepParallel4Concurrent4-12    	      31	  32852115 ns/op
+BenchmarkLua-12                             	   10669	    104902 ns/op
+BenchmarkLuaParallel4-12                    	   10748	    103063 ns/op
+BenchmarkLuaSleep-12                        	   10876	    100345 ns/op
+BenchmarkLuaSleepParallel4-12               	   10936	    100529 ns/op
+BenchmarkLuaConcurrent4-12                  	   17192	    113937 ns/op
+BenchmarkLuaParallel4Concurrent4-12         	    3621	    311408 ns/op
+BenchmarkLuaSleepConcurrent4-12             	    3018	    362450 ns/op
+BenchmarkLuaSleepParallel4Concurrent4-12    	    4266	    242923 ns/op
 PASS
-ok  	github.com/joesonw/drlee/benchmarks/http	40.411s
+ok  	github.com/joesonw/drlee/benchmarks/http	18.638s
+
+
+go test -bench=BenchmarkPlain -run=^$ ./benchmarks/http/...
+goos: darwin
+goarch: amd64
+pkg: github.com/joesonw/drlee/benchmarks/http
+BenchmarkPlain-12                             	     781	   1585237 ns/op
+BenchmarkPlainParallel4-12                    	     561	   1984322 ns/op
+BenchmarkPlainSleep-12                        	       9	 119402600 ns/op
+BenchmarkPlainSleepParallel4-12               	       9	 119543837 ns/op
+BenchmarkPlainConcurrent4-12                  	      10	 253402008 ns/op
+BenchmarkPlainParallel4Concurrent4-12         	    2055	    685172 ns/op
+BenchmarkPlainSleepConcurrent4-12             	      34	  31713889 ns/op
+BenchmarkPlainSleepParallel4Concurrent4-12    	      34	  31612692 ns/op
+PASS
+ok  	github.com/joesonw/drlee/benchmarks/http	20.878s
 ```
 
 `BenchmarkPlain` is in plain go, `BenchmarkLua` ran with lua.
