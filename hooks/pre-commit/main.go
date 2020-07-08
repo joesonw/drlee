@@ -28,12 +28,8 @@ func main() {
 		die(err)
 		old[name] = b
 	}
-	cmd := exec.Command("bash", "hack/build_proto.sh")
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	die(cmd.Run())
 
-	cmd = exec.Command("packr")
+	cmd := exec.Command("packr")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	die(cmd.Run())
