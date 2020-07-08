@@ -76,7 +76,9 @@ var _ = Describe("Request", func() {
 				if err != nil {
 					L.RaiseError(err.Error())
 				}
-				utils.RegisterLuaScriptModule(L, "http", src)
+				if err := utils.RegisterLuaScriptModule(L, "http", src); err != nil {
+					L.RaiseError(err.Error())
+				}
 
 			})
 	}

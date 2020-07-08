@@ -1,6 +1,10 @@
 package utils
 
-import lua "github.com/yuin/gopher-lua"
+import (
+	"fmt"
+
+	lua "github.com/yuin/gopher-lua"
+)
 
 func RegisterLuaModuleObject(L *lua.LState, name string, object lua.LValue) {
 	tb := L.FindTable(L.Get(lua.RegistryIndex).(*lua.LTable), "_LOADED", 1)
@@ -42,22 +46,20 @@ func RegisterLuaModuleFunctions(L *lua.LState, name string, funcs map[string]*lu
 	}
 }
 
-func RegisterLuaScriptModule(L *lua.LState, name, src string) {
+func RegisterLuaScriptModule(L *lua.LState, name, src string) error {
 	tb := L.FindTable(L.Get(lua.RegistryIndex).(*lua.LTable), "_LOADED", 1)
 	mod := L.GetField(tb, name)
-	if mod.Type() != lua.LTTable {
-		newmod := L.FindTable(L.Get(lua.GlobalsIndex).(*lua.LTable), name, 0)
-		if _, ok := newmod.(*lua.LTable); !ok {
-			L.RaiseError("name conflict for module(%v)", name)
-		} else {
-			L.SetTop(0)
-			if err := L.DoString(src); err != nil {
-				L.RaiseError("unable to register module: " + err.Error())
-			}
-			L.SetField(tb, name, L.Get(1))
-			L.SetTop(0)
+	if mod == lua.LNil {
+		L.SetTop(0)
+		if err := L.DoString(src); err != nil {
+			println(err.Error())
+			return fmt.Errorf("unable to register module: " + err.Error())
 		}
+		L.SetField(tb, name, L.Get(1))
+		L.SetTop(0)
 	}
+
+	return nil
 }
 
 func RegisterGlobalFuncs(L *lua.LState, funcs map[string]lua.LGFunction, upvalues ...lua.LValue) {

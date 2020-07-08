@@ -4,6 +4,7 @@ set -e
 OS="$(go env GOHOSTOS)"
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd & )"
 
+rm -rf ${ROOT}/proto/*
 mkdir -p ${ROOT}/proto
 
 bazel run //:gazelle

@@ -26,5 +26,7 @@ func Open(L *lua.LState, ec *core.ExecutionContext, runtime packr.Box, client *h
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
-	utils.RegisterLuaScriptModule(L, "http", src)
+	if err := utils.RegisterLuaScriptModule(L, "http", src); err != nil {
+		L.RaiseError(err.Error())
+	}
 }

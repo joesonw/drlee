@@ -35,7 +35,9 @@ func Open(L *lua.LState, ec *core.ExecutionContext, open OpenFile, runtime packr
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
-	utils.RegisterLuaScriptModule(L, "fs", src)
+	if err := utils.RegisterLuaScriptModule(L, "fs", src); err != nil {
+		L.RaiseError(err.Error())
+	}
 }
 
 type uV struct {
@@ -88,7 +90,6 @@ func lOpen(L *lua.LState) int {
 	core.GoFunctionCallback(fs.ec, cb, func(ctx context.Context) (lua.LValue, error) {
 		file, err := fs.open(path.String(), flag.Int(), perm.Int())
 		if err != nil {
-			println(err.Error())
 			return lua.LNil, err
 		}
 
