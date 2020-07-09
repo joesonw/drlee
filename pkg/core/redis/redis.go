@@ -92,7 +92,7 @@ func lCall(L *lua.LState) int {
 
 	cb := L.Get(L.GetTop())
 	client.ec.Call(core.Go(func(ctx context.Context) error {
-		result, err := client.doable.Do(L.Context(), args...).Result()
+		result, err := client.doable.Do(ctx, args...).Result()
 		if err != nil {
 			client.ec.Call(core.Lua(cb, utils.LError(err)))
 		} else {

@@ -58,7 +58,6 @@ func (s *Server) LoadLua(ctx context.Context, path string) error {
 
 	for i := 0; i < s.config.Concurrency; i++ {
 		L := lua.NewState(lua.Options{})
-		L.SetContext(context.Background())
 		box := runtime.New()
 		globalSrc, err := box.FindString("global.lua")
 		if err != nil {
@@ -123,8 +122,6 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	exit := make(chan time.Duration, 1)
 	s.luaExitChannelGroup = append(s.luaExitChannelGroup, exit)
 	inboxConsumer := s.inbox.NewConsumer(id)
-	ctx, cancel := context.WithCancel(L.Context())
-	L.SetContext(ctx)
 
 	ec := core.NewExecutionContext(L, core.Config{
 		OnError: func(err error) {
@@ -187,7 +184,6 @@ func (s *Server) runLua(L *lua.LState, box packr.Box, dir, name string, id int, 
 	ec.Start()
 
 	<-exit
-	cancel()
 	ec.Close()
 	L.Close()
 }

@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -76,8 +75,6 @@ var _ = Describe("HTTP Server", func() {
 	It("should catch error", func() {
 		L := lua.NewState(lua.Options{})
 		L.OpenLibs()
-		L.SetContext(context.Background())
-		defer L.Close()
 
 		ec := core.NewExecutionContext(L, core.Config{
 			OnError: func(err error) {

@@ -203,7 +203,7 @@ func query(L *lua.LState, ec *core.ExecutionContext, db Interface) int {
 
 	ec.Call(core.Go(func(ctx context.Context) (err error) {
 		// nolint:rowserrcheck
-		rows, err := db.QueryContext(L.Context(), query, args...)
+		rows, err := db.QueryContext(ctx, query, args...)
 		if err != nil {
 			ec.Call(core.Lua(cb, utils.LError(err)))
 			return nil

@@ -24,7 +24,6 @@ type Config struct {
 	GoStackSize       int
 	GoCallConcurrency int
 	GoCallTimeout     time.Duration
-	LuaCallTimeout    time.Duration
 	IsDebug           bool
 	Logger            *zap.Logger
 }
@@ -71,15 +70,6 @@ func (ec *ExecutionContext) callLua(call LuaCall) {
 	if ec.closed {
 		return
 	}
-	oldCtx := ec.L.Context()
-	ctx := oldCtx
-	if ec.config.LuaCallTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, ec.config.LuaCallTimeout)
-		defer cancel()
-	}
-	ec.L.SetContext(ctx)
-	defer ec.L.SetContext(oldCtx)
 	err := call.Call(ec.L)
 	if err != nil {
 		if r, ok := call.(OnError); ok {
@@ -108,7 +98,7 @@ func (ec *ExecutionContext) callGo(call GoCall) {
 	ctx := context.Background()
 	if ec.config.GoCallTimeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, ec.config.LuaCallTimeout)
+		ctx, cancel = context.WithTimeout(ctx, ec.config.GoCallTimeout)
 		defer cancel()
 	}
 	err := call.Call(ctx)
