@@ -21,14 +21,14 @@ type Interface interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
-type uV struct {
+type lSQL struct {
 	open func(driverName, dataSourceName string) (*sql.DB, error)
 	ec   *core.ExecutionContext
 }
 
 func Open(L *lua.LState, ec *core.ExecutionContext, open func(driverName, dataSourceName string) (*sql.DB, error)) {
 	ud := L.NewUserData()
-	ud.Value = &uV{
+	ud.Value = &lSQL{
 		open: open,
 		ec:   ec,
 	}
@@ -40,9 +40,9 @@ var funcs = map[string]lua.LGFunction{
 	"open": lOpen,
 }
 
-func up(L *lua.LState) *uV {
+func checkSQL(L *lua.LState) *lSQL {
 	uv := L.Get(lua.UpvalueIndex(1)).(*lua.LUserData)
-	if ctx, ok := uv.Value.(*uV); ok {
+	if ctx, ok := uv.Value.(*lSQL); ok {
 		return ctx
 	}
 
@@ -51,7 +51,7 @@ func up(L *lua.LState) *uV {
 }
 
 func lOpen(L *lua.LState) int {
-	uv := up(L)
+	uv := checkSQL(L)
 
 	uri := params.String()
 	cb := params.Check(L, 1, 1, "sql.open(uri, cb?)", uri)
@@ -73,7 +73,7 @@ func lOpen(L *lua.LState) int {
 		})
 		uv.ec.Guard(resource)
 
-		obj := object.NewProtected(L, connFuncs, map[string]lua.LValue{}, &uvConn{
+		obj := object.NewProtected(L, connFuncs, map[string]lua.LValue{}, &lConn{
 			ec:   uv.ec,
 			id:   uuid.NewV4().String(),
 			conn: conn,
@@ -93,39 +93,39 @@ var connFuncs = map[string]lua.LGFunction{
 	"close": lConnClose,
 }
 
-type uvConn struct {
+type lConn struct {
 	ec   *core.ExecutionContext
 	id   string
 	conn *sql.DB
 }
 
-func upConn(L *lua.LState) *uvConn {
+func checkConn(L *lua.LState) *lConn {
 	conn, err := object.Value(L.CheckUserData(1))
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
-	return conn.(*uvConn)
+	return conn.(*lConn)
 }
 
 func lConnQuery(L *lua.LState) int {
-	conn := upConn(L)
+	conn := checkConn(L)
 	return query(L, conn.ec, conn.conn)
 }
 
 func lConnExec(L *lua.LState) int {
-	conn := upConn(L)
+	conn := checkConn(L)
 	count := exec(L, conn.ec, conn.conn)
 	return count
 }
 
 func lConnBegin(L *lua.LState) int {
-	conn := upConn(L)
+	conn := checkConn(L)
 	core.GoFunctionCallback(conn.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
 		tx, err := conn.conn.BeginTx(ctx, nil)
 		if err != nil {
 			return lua.LNil, err
 		}
-		obj := object.NewProtected(L, txFuncs, map[string]lua.LValue{}, &uvTx{
+		obj := object.NewProtected(L, txFuncs, map[string]lua.LValue{}, &lTx{
 			conn: conn,
 			tx:   tx,
 		})
@@ -135,7 +135,7 @@ func lConnBegin(L *lua.LState) int {
 }
 
 func lConnClose(L *lua.LState) int {
-	conn := upConn(L)
+	conn := checkConn(L)
 	core.GoFunctionCallback(conn.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
 		return lua.LNil, conn.conn.Close()
 	})
@@ -149,14 +149,14 @@ var txFuncs = map[string]lua.LGFunction{
 	"rollback": lTxRollback,
 }
 
-type uvTx struct {
-	conn *uvConn
+type lTx struct {
+	conn *lConn
 	tx   *sql.Tx
 }
 
-func upTx(L *lua.LState) *uvTx {
+func checkTx(L *lua.LState) *lTx {
 	ud := L.CheckUserData(1)
-	if tx, ok := ud.Value.(*uvTx); ok {
+	if tx, ok := ud.Value.(*lTx); ok {
 		return tx
 	}
 	L.RaiseError("expected tx")
@@ -164,17 +164,17 @@ func upTx(L *lua.LState) *uvTx {
 }
 
 func lTxQuery(L *lua.LState) int {
-	tx := upTx(L)
+	tx := checkTx(L)
 	return query(L, tx.conn.ec, tx.tx)
 }
 
 func lTxExec(L *lua.LState) int {
-	tx := upTx(L)
+	tx := checkTx(L)
 	return exec(L, tx.conn.ec, tx.tx)
 }
 
 func lTxCommit(L *lua.LState) int {
-	tx := upTx(L)
+	tx := checkTx(L)
 	core.GoFunctionCallback(tx.conn.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
 		err := tx.tx.Commit()
 		return lua.LNil, err
@@ -183,7 +183,7 @@ func lTxCommit(L *lua.LState) int {
 }
 
 func lTxRollback(L *lua.LState) int {
-	tx := upTx(L)
+	tx := checkTx(L)
 	core.GoFunctionCallback(tx.conn.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
 		err := tx.tx.Rollback()
 		return lua.LNil, err

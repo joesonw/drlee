@@ -16,13 +16,13 @@ var funcs = map[string]lua.LGFunction{
 	"fatal": lFatal,
 }
 
-type userValue struct {
+type lLogger struct {
 	logger *zap.Logger
 }
 
-func up(L *lua.LState) *userValue {
+func checkLogger(L *lua.LState) *lLogger {
 	ud := L.CheckUserData(lua.UpvalueIndex(1))
-	if log, ok := ud.Value.(*userValue); ok {
+	if log, ok := ud.Value.(*lLogger); ok {
 		return log
 	}
 	L.RaiseError("log expected")
@@ -31,7 +31,7 @@ func up(L *lua.LState) *userValue {
 
 func Open(L *lua.LState, logger *zap.Logger) {
 	ud := L.NewUserData()
-	ud.Value = &userValue{logger: logger}
+	ud.Value = &lLogger{logger: logger}
 	utils.RegisterLuaModule(L, "log", funcs, ud)
 }
 
@@ -45,31 +45,31 @@ func lLogStringify(L *lua.LState) string {
 }
 
 func lDebug(L *lua.LState) int {
-	log := up(L)
+	log := checkLogger(L)
 	log.logger.Debug(lLogStringify(L))
 	return 0
 }
 
 func lInfo(L *lua.LState) int {
-	log := up(L)
+	log := checkLogger(L)
 	log.logger.Info(lLogStringify(L))
 	return 0
 }
 
 func lWarn(L *lua.LState) int {
-	log := up(L)
+	log := checkLogger(L)
 	log.logger.Warn(lLogStringify(L))
 	return 0
 }
 
 func lError(L *lua.LState) int {
-	log := up(L)
+	log := checkLogger(L)
 	log.logger.Error(lLogStringify(L))
 	return 0
 }
 
 func lFatal(L *lua.LState) int {
-	log := up(L)
+	log := checkLogger(L)
 	log.logger.Fatal(lLogStringify(L))
 	return 0
 }

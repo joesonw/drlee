@@ -14,14 +14,14 @@ const (
 	Layout = "2006-01-02T15:04:05.000Z07:00"
 )
 
-type uV struct {
+type lTime struct {
 	ec  *core.ExecutionContext
 	now func() time.Time
 }
 
-func up(L *lua.LState) *uV {
+func checkTime(L *lua.LState) *lTime {
 	uv := L.CheckUserData(lua.UpvalueIndex(1))
-	if u, ok := uv.Value.(*uV); ok {
+	if u, ok := uv.Value.(*lTime); ok {
 		return u
 	}
 
@@ -37,7 +37,7 @@ var funcs = map[string]lua.LGFunction{
 
 func Open(L *lua.LState, ec *core.ExecutionContext, now func() time.Time) {
 	ud := L.NewUserData()
-	ud.Value = &uV{
+	ud.Value = &lTime{
 		ec:  ec,
 		now: now,
 	}
@@ -45,7 +45,7 @@ func Open(L *lua.LState, ec *core.ExecutionContext, now func() time.Time) {
 }
 
 func lTimeout(L *lua.LState) int {
-	uv := up(L)
+	uv := checkTime(L)
 	ms := params.Number()
 	cb := params.Check(L, 1, 1, "time.timeout(ms, cb?)", ms)
 	go func() {
@@ -56,7 +56,7 @@ func lTimeout(L *lua.LState) int {
 }
 
 func lTick(L *lua.LState) int {
-	uv := up(L)
+	uv := checkTime(L)
 	ms := L.CheckInt64(1)
 	if ms <= 0 {
 		L.ArgError(1, "time.tick(ms): repeat period should be larger than 0")
@@ -80,7 +80,7 @@ type lTicker struct {
 	goTicker *time.Ticker
 }
 
-func upTicker(L *lua.LState) *lTicker {
+func checkTicker(L *lua.LState) *lTicker {
 	ticker, err := object.Value(L.CheckUserData(1))
 	if err != nil {
 		L.RaiseError(err.Error())
@@ -94,7 +94,7 @@ var tickerFuncs = map[string]lua.LGFunction{
 }
 
 func lTickerNextTick(L *lua.LState) int {
-	ticker := upTicker(L)
+	ticker := checkTicker(L)
 	cb := L.Get(2)
 	go func() {
 		timestamp := <-ticker.goTicker.C
@@ -104,7 +104,7 @@ func lTickerNextTick(L *lua.LState) int {
 }
 
 func lTickerStop(L *lua.LState) int {
-	ticker := upTicker(L)
+	ticker := checkTicker(L)
 	ticker.goTicker.Stop()
 	return 0
 }
@@ -113,7 +113,7 @@ type lTimestamp struct {
 	goTime time.Time
 }
 
-func upTimestamp(L *lua.LState) *lTimestamp {
+func checkTimestamp(L *lua.LState) *lTimestamp {
 	ts, err := object.Value(L.CheckUserData(1))
 	if err != nil {
 		L.RaiseError(err.Error())
@@ -122,7 +122,7 @@ func upTimestamp(L *lua.LState) *lTimestamp {
 }
 
 func lNow(L *lua.LState) int {
-	uv := up(L)
+	uv := checkTime(L)
 	now := uv.now()
 	L.Push(New(L, now).Value())
 	return 1
@@ -152,13 +152,13 @@ var timestampFuncs = map[string]lua.LGFunction{
 }
 
 func timestampToString(L *lua.LState) int {
-	timestamp := upTimestamp(L)
+	timestamp := checkTimestamp(L)
 	L.Push(lua.LString(timestamp.goTime.Format(Layout)))
 	return 1
 }
 
 func timestampFormat(L *lua.LState) int {
-	timestamp := upTimestamp(L)
+	timestamp := checkTimestamp(L)
 	L.Push(lua.LString(timestamp.goTime.Format(L.CheckString(2))))
 	return 1
 }

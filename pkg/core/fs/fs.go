@@ -26,7 +26,7 @@ type File interface {
 
 func Open(L *lua.LState, ec *core.ExecutionContext, open OpenFile, runtime packr.Box) {
 	ud := L.NewUserData()
-	ud.Value = &uV{
+	ud.Value = &lFS{
 		open: open,
 		ec:   ec,
 	}
@@ -40,14 +40,14 @@ func Open(L *lua.LState, ec *core.ExecutionContext, open OpenFile, runtime packr
 	}
 }
 
-type uV struct {
+type lFS struct {
 	open OpenFile
 	ec   *core.ExecutionContext
 }
 
-func up(L *lua.LState) *uV {
+func checkFS(L *lua.LState) *lFS {
 	uv := L.CheckUserData(lua.UpvalueIndex(1))
-	if fs, ok := uv.Value.(*uV); ok {
+	if fs, ok := uv.Value.(*lFS); ok {
 		return fs
 	}
 
@@ -81,7 +81,7 @@ func lFlags(L *lua.LState) int {
 }
 
 func lOpen(L *lua.LState) int {
-	fs := up(L)
+	fs := checkFS(L)
 	path := params.String()
 	flag := params.Number()
 	perm := params.Number()
@@ -114,7 +114,7 @@ func lOpen(L *lua.LState) int {
 }
 
 func lRemove(L *lua.LState) int {
-	fs := up(L)
+	fs := checkFS(L)
 	path := params.String()
 	cb := params.Check(L, 1, 1, "fs.remove(path, cb?)", path)
 	core.GoFunctionCallback(fs.ec, cb, func(ctx context.Context) (lua.LValue, error) {
@@ -125,7 +125,7 @@ func lRemove(L *lua.LState) int {
 }
 
 func lRemoveAll(L *lua.LState) int {
-	fs := up(L)
+	fs := checkFS(L)
 	path := params.String()
 	cb := params.Check(L, 1, 1, "fs.remove_all(path, cb?)", path)
 	core.GoFunctionCallback(fs.ec, cb, func(ctx context.Context) (lua.LValue, error) {
@@ -146,7 +146,7 @@ func createStat(L *lua.LState, info os.FileInfo) lua.LValue {
 }
 
 func lStat(L *lua.LState) int {
-	fs := up(L)
+	fs := checkFS(L)
 	path := params.String()
 	cb := params.Check(L, 1, 1, "fs.stat(path, cb?)", path)
 	core.GoFunctionCallback(fs.ec, cb, func(ctx context.Context) (lua.LValue, error) {
@@ -160,7 +160,7 @@ func lStat(L *lua.LState) int {
 }
 
 func lReadDir(L *lua.LState) int {
-	fs := up(L)
+	fs := checkFS(L)
 	path := params.String()
 	cb := params.Check(L, 1, 1, "fs.read_dir(path, cb?)", path)
 	core.GoFunctionCallback(fs.ec, cb, func(ctx context.Context) (lua.LValue, error) {
@@ -179,7 +179,7 @@ func lReadDir(L *lua.LState) int {
 
 //nolint:dupl
 func lMkdir(L *lua.LState) int {
-	fs := up(L)
+	fs := checkFS(L)
 	path := params.String()
 	mode := params.Number(lua.LNumber(int(os.ModeDir | os.ModePerm)))
 	cb := params.Check(L, 1, 1, "fs.mkdir(path, mode?, cb?)", path, mode)
@@ -192,7 +192,7 @@ func lMkdir(L *lua.LState) int {
 
 //nolint:dupl
 func lMkdirAll(L *lua.LState) int {
-	fs := up(L)
+	fs := checkFS(L)
 	path := params.String()
 	mode := params.Number(lua.LNumber(int(os.ModeDir | os.ModePerm)))
 	cb := params.Check(L, 1, 1, "fs.mkdir_all(path, mode?, cb?)", path, mode)

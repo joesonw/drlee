@@ -37,7 +37,7 @@ func lCreateServer(L *lua.LState) int {
 	addr := L.CheckString(2)
 	handler := L.CheckFunction(3)
 
-	s := &uvServer{
+	s := &lServer{
 		handler: handler,
 		network: network,
 		addr:    addr,
@@ -54,7 +54,7 @@ var serverFuncs = map[string]lua.LGFunction{
 	"stop":  lServerStop,
 }
 
-type uvServer struct {
+type lServer struct {
 	listen  Listen
 	network string
 	addr    string
@@ -63,16 +63,16 @@ type uvServer struct {
 	exit    chan struct{}
 }
 
-func upServer(L *lua.LState) *uvServer {
+func checkServer(L *lua.LState) *lServer {
 	f, err := object.Value(L.CheckUserData(1))
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
-	return f.(*uvServer)
+	return f.(*lServer)
 }
 
 func lServerStart(L *lua.LState) int {
-	server := upServer(L)
+	server := checkServer(L)
 
 	core.GoFunctionCallback(server.ec, L.Get(2), func(ctx context.Context) (lua.LValue, error) {
 		lis, err := server.listen(server.network, server.addr)
@@ -105,7 +105,7 @@ func lServerStart(L *lua.LState) int {
 }
 
 func lServerStop(L *lua.LState) int {
-	server := upServer(L)
+	server := checkServer(L)
 	server.exit <- struct{}{}
 	return 0
 }

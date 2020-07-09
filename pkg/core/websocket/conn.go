@@ -13,7 +13,7 @@ import (
 )
 
 func newConn(L *lua.LState, ec *core.ExecutionContext, conn net.Conn, state ws.State) *object.Object {
-	c := &uvConn{
+	c := &lConn{
 		conn:  conn,
 		ec:    ec,
 		state: state,
@@ -33,18 +33,18 @@ func newConn(L *lua.LState, ec *core.ExecutionContext, conn net.Conn, state ws.S
 	return obj
 }
 
-type uvConn struct {
+type lConn struct {
 	ec    *core.ExecutionContext
 	conn  net.Conn
 	state ws.State
 }
 
-func upConn(L *lua.LState) *uvConn {
+func checkConn(L *lua.LState) *lConn {
 	conn, err := object.Value(L.CheckUserData(1))
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
-	return conn.(*uvConn)
+	return conn.(*lConn)
 }
 
 var connFuncs = map[string]lua.LGFunction{
@@ -53,7 +53,7 @@ var connFuncs = map[string]lua.LGFunction{
 }
 
 func lConnReadFrame(L *lua.LState) int {
-	conn := upConn(L)
+	conn := checkConn(L)
 	cb := L.Get(2)
 	go func() {
 		var (
@@ -85,7 +85,7 @@ func lConnReadFrame(L *lua.LState) int {
 }
 
 func lConnWriteFrame(L *lua.LState) int {
-	conn := upConn(L)
+	conn := checkConn(L)
 	body := L.CheckString(2)
 	cb := L.Get(3)
 	core.GoFunctionCallback(conn.ec, cb, func(ctx context.Context) (lua.LValue, error) {

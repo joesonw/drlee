@@ -39,7 +39,7 @@ func NewRequest(L *lua.LState, req *http.Request, ec *core.ExecutionContext, res
 	return obj
 }
 
-type uvResponse struct {
+type lResponse struct {
 	*http.Response
 	ec *core.ExecutionContext
 }
@@ -56,7 +56,7 @@ func NewResponse(L *lua.LState, res *http.Response, ec *core.ExecutionContext, r
 	}
 
 	ud := L.NewUserData()
-	ud.Value = &uvResponse{
+	ud.Value = &lResponse{
 		Response: res,
 		ec:       ec,
 	}
@@ -67,7 +67,7 @@ func NewResponse(L *lua.LState, res *http.Response, ec *core.ExecutionContext, r
 	return obj
 }
 
-type uvResponseWriter struct {
+type lResponseWriter struct {
 	http.ResponseWriter
 	finish chan error
 	ec     *core.ExecutionContext
@@ -76,7 +76,7 @@ type uvResponseWriter struct {
 func NewResponseWriter(L *lua.LState, w http.ResponseWriter, finish chan error, ec *core.ExecutionContext) *object.Object {
 	properties := map[string]lua.LValue{}
 
-	uv := &uvResponseWriter{
+	uv := &lResponseWriter{
 		ResponseWriter: w,
 		ec:             ec,
 		finish:         finish,
@@ -94,34 +94,34 @@ var responseWriterFuncs = map[string]lua.LGFunction{
 	"finish":     lResponseWriterFinish,
 }
 
-func upResponseWriter(L *lua.LState) *uvResponseWriter {
+func checkResponseWriter(L *lua.LState) *lResponseWriter {
 	w, err := object.Value(L.CheckUserData(1))
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
-	return w.(*uvResponseWriter)
+	return w.(*lResponseWriter)
 }
 
 func lResponseWriterSetStatus(L *lua.LState) int {
-	w := upResponseWriter(L)
+	w := checkResponseWriter(L)
 	w.WriteHeader(int(L.CheckNumber(2)))
 	return 0
 }
 
 func lResponseWriterSet(L *lua.LState) int {
-	w := upResponseWriter(L)
+	w := checkResponseWriter(L)
 	w.Header().Set(L.CheckString(2), L.CheckString(3))
 	return 0
 }
 
 func lResponseWriterGet(L *lua.LState) int {
-	w := upResponseWriter(L)
+	w := checkResponseWriter(L)
 	L.Push(lua.LString(w.Header().Get(L.CheckString(2))))
 	return 1
 }
 
 func lResponseWriterFinish(L *lua.LState) int {
-	w := upResponseWriter(L)
+	w := checkResponseWriter(L)
 	w.finish <- nil
 	return 0
 }

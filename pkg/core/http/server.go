@@ -38,7 +38,7 @@ func lCreateServer(L *lua.LState) int {
 	addr := L.CheckString(1)
 	handler := L.CheckFunction(2)
 
-	s := &uvServer{
+	s := &lServer{
 		handler: handler,
 		addr:    addr,
 		listen:  cserver.listen,
@@ -54,7 +54,7 @@ var serverFuncs = map[string]lua.LGFunction{
 	"stop":  lServerStop,
 }
 
-type uvServer struct {
+type lServer struct {
 	listen   Listen
 	addr     string
 	server   *http.Server
@@ -63,15 +63,15 @@ type uvServer struct {
 	resource core.Resource
 }
 
-func upServer(L *lua.LState) *uvServer {
+func checkServer(L *lua.LState) *lServer {
 	f, err := object.Value(L.CheckUserData(1))
 	if err != nil {
 		L.RaiseError(err.Error())
 	}
-	return f.(*uvServer)
+	return f.(*lServer)
 }
 
-func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *lServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ch := make(chan error, 1)
 	resource := core.NewResource("http.ResponseWriter", func() {
 		r.Body.Close()
@@ -96,7 +96,7 @@ func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func lServerStart(L *lua.LState) int {
-	server := upServer(L)
+	server := checkServer(L)
 	server.server = &http.Server{
 		Handler:  server,
 		ErrorLog: nil,
@@ -127,7 +127,7 @@ func lServerStart(L *lua.LState) int {
 }
 
 func lServerStop(L *lua.LState) int {
-	server := upServer(L)
+	server := checkServer(L)
 	server.resource.Cancel()
 	err := server.server.Close()
 	if err != nil {

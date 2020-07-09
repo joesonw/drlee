@@ -33,13 +33,13 @@ type Env struct {
 	Start     func()
 }
 
-type uV struct {
+type lRPC struct {
 	env      *Env
 	ec       *core.ExecutionContext
 	handlers map[string]*lua.LFunction
 }
 
-func (uv *uV) handle(req *Request) {
+func (uv *lRPC) handle(req *Request) {
 	if req == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func (uv *uV) handle(req *Request) {
 
 func Open(L *lua.LState, ec *core.ExecutionContext, env *Env) {
 	ud := L.NewUserData()
-	ud.Value = &uV{
+	ud.Value = &lRPC{
 		env:      env,
 		ec:       ec,
 		handlers: map[string]*lua.LFunction{},
@@ -96,9 +96,9 @@ func Open(L *lua.LState, ec *core.ExecutionContext, env *Env) {
 	utils.RegisterLuaModule(L, "rpc", funcs, ud)
 }
 
-func up(L *lua.LState) *uV {
+func checkRPC(L *lua.LState) *lRPC {
 	uv := L.CheckUserData(lua.UpvalueIndex(1))
-	if fs, ok := uv.Value.(*uV); ok {
+	if fs, ok := uv.Value.(*lRPC); ok {
 		return fs
 	}
 
@@ -114,7 +114,7 @@ var funcs = map[string]lua.LGFunction{
 }
 
 func lStart(L *lua.LState) int {
-	uv := up(L)
+	uv := checkRPC(L)
 	ch := uv.env.ReadChan()
 	uv.env.Start()
 	go func() {
@@ -126,7 +126,7 @@ func lStart(L *lua.LState) int {
 }
 
 func lRegister(L *lua.LState) int {
-	uv := up(L)
+	uv := checkRPC(L)
 	name := L.CheckString(1)
 	handler := L.CheckFunction(2)
 	uv.env.Register(name)
@@ -135,7 +135,7 @@ func lRegister(L *lua.LState) int {
 }
 
 func lCall(L *lua.LState) int {
-	uv := up(L)
+	uv := checkRPC(L)
 	name := L.CheckString(1)
 	message := L.CheckAny(2)
 	reply := L.Get(3)
@@ -170,7 +170,7 @@ func lCall(L *lua.LState) int {
 }
 
 func lBroadcast(L *lua.LState) int {
-	uv := up(L)
+	uv := checkRPC(L)
 	name := L.CheckString(1)
 	message := L.CheckAny(2)
 	reply := L.Get(3)
