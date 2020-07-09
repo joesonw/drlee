@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/joesonw/drlee/pkg/core"
+	"github.com/joesonw/drlee/pkg/core/helpers/params"
 	"github.com/joesonw/drlee/pkg/core/json"
 	"github.com/joesonw/drlee/pkg/utils"
 	lua "github.com/yuin/gopher-lua"
@@ -22,6 +24,7 @@ type Request struct {
 	IsLoopBack bool
 	Name       string
 	Body       []byte
+	ExpiresAt  time.Time
 }
 
 type Env struct {
@@ -60,9 +63,12 @@ func (uv *lRPC) handle(req *Request) {
 		}
 
 		err = utils.CallLuaFunction(L, handler, v, L.NewFunction(func(L *lua.LState) int {
+			if exp := req.ExpiresAt; !exp.IsZero() && exp.Before(time.Now()) {
+				L.RaiseError(fmt.Sprintf("req \"%s\" is already timedout", req.ID))
+				return 0
+			}
 			err := L.Get(1)
-			if err == nil || err == lua.LNil {
-			} else {
+			if err != nil && err != lua.LNil {
 				uv.env.Reply(req.ID, req.NodeName, req.IsLoopBack, &Response{Error: errors.New(err.String())})
 				return 0
 			}
@@ -136,56 +142,32 @@ func lRegister(L *lua.LState) int {
 
 func lCall(L *lua.LState) int {
 	uv := checkRPC(L)
-	name := L.CheckString(1)
-	message := L.CheckAny(2)
-	reply := L.Get(3)
 
-	body, err := json.Encode(message)
-	if err != nil {
-		L.RaiseError(err.Error())
-		return 0
-	}
-
-	uv.ec.Call(core.Go(func(ctx context.Context) error {
-		uv.env.Call(ctx, &Request{
-			Name: name,
-			Body: body,
-		}, func(res *Response) {
+	return auxCall(L, "rpc.call(name, message, options?, cb?)", func(ctx context.Context, cancel context.CancelFunc, req *Request, cb lua.LValue) {
+		uv.env.Call(ctx, req, func(res *Response) {
+			cancel()
 			uv.ec.Call(core.Scoped(func(L *lua.LState) error {
 				if res.Error != nil {
-					return utils.CallLuaFunction(L, reply, utils.LError(res.Error))
+					return utils.CallLuaFunction(L, cb, utils.LError(res.Error))
 				}
 
 				val, err := json.Decode(L, res.Body)
 				if err != nil {
-					return utils.CallLuaFunction(L, reply, utils.LError(err))
+					return utils.CallLuaFunction(L, cb, utils.LError(err))
 				}
 
-				return utils.CallLuaFunction(L, reply, lua.LNil, val)
+				return utils.CallLuaFunction(L, cb, lua.LNil, val)
 			}))
 		})
-		return nil
-	}))
-	return 0
+	})
 }
 
 func lBroadcast(L *lua.LState) int {
 	uv := checkRPC(L)
-	name := L.CheckString(1)
-	message := L.CheckAny(2)
-	reply := L.Get(3)
 
-	body, err := json.Encode(message)
-	if err != nil {
-		L.RaiseError(err.Error())
-		return 0
-	}
-
-	uv.ec.Call(core.Go(func(ctx context.Context) error {
-		uv.env.Broadcast(ctx, &Request{
-			Name: name,
-			Body: body,
-		}, func(list []*Response) {
+	return auxCall(L, "rpc.broadcast(name, message, options?, cb?)", func(ctx context.Context, cancel context.CancelFunc, req *Request, cb lua.LValue) {
+		uv.env.Broadcast(ctx, req, func(list []*Response) {
+			cancel()
 			uv.ec.Call(core.Scoped(func(L *lua.LState) error {
 				result := L.NewTable()
 				for _, res := range list {
@@ -195,15 +177,47 @@ func lBroadcast(L *lua.LState) int {
 					} else {
 						val, err := json.Decode(L, res.Body)
 						if err != nil {
-							return utils.CallLuaFunction(L, reply, utils.LError(err))
+							return utils.CallLuaFunction(L, cb, utils.LError(err))
 						}
 						tb.RawSetString("body", val)
 					}
 					result.Append(tb)
 				}
-				return utils.CallLuaFunction(L, reply, lua.LNil, result)
+				return utils.CallLuaFunction(L, cb, lua.LNil, result)
 			}))
 		})
+	})
+}
+
+func auxCall(L *lua.LState, funcName string, f func(ctx context.Context, cancel context.CancelFunc, req *Request, cb lua.LValue)) int {
+	uv := checkRPC(L)
+	name := params.String()
+	message := params.Any()
+	options := params.Table()
+	cb := params.Check(L, 1, 2, funcName, name, message, options)
+
+	body, err := json.Encode(message.Value())
+	if err != nil {
+		L.RaiseError(err.Error())
+		return 0
+	}
+
+	uv.ec.Call(core.Go(func(ctx context.Context) error {
+		var expiresAt time.Time
+		var cancel context.CancelFunc = func() {}
+		if tb := options.Table(); tb != nil {
+			val := tb.RawGetString("timeout")
+			if val.Type() == lua.LTNumber {
+				timeout := time.Duration(lua.LVAsNumber(val)) * time.Millisecond
+				expiresAt = time.Now().Add(timeout)
+				ctx, cancel = context.WithTimeout(ctx, timeout)
+			}
+		}
+		f(ctx, cancel, &Request{
+			Name:      name.String(),
+			Body:      body,
+			ExpiresAt: expiresAt,
+		}, cb)
 		return nil
 	}))
 

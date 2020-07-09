@@ -11,6 +11,7 @@ go_library(
         "drivers.go",
         "endpoint.go",
         "event_delegate.go",
+        "health.go",
         "inbox.go",
         "listeners.go",
         "lua_rpc.go",

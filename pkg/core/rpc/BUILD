@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/core:go_default_library",
+        "//pkg/core/helpers/params:go_default_library",
         "//pkg/core/json:go_default_library",
         "//pkg/utils:go_default_library",
         "@com_github_yuin_gopher_lua//:go_default_library",

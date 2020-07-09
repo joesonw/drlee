@@ -59,8 +59,8 @@
     * [redis:do(..., cb)](#redisdo-cb)
  * [rpc](#rpc)
     * [rpc.register(name, handler)](#rpcregistername-handler)
-    * [rpc.call(name, message, cb?)](#rpccallname-message-cb)
-    * [rpc.broadcast(name, message, cb?)](#rpcbroadcastname-message-cb)
+    * [rpc.call(name, message, options?, cb?)](#rpccallname-message-options-cb)
+    * [rpc.broadcast(name, message, options?, cb?)](#rpcbroadcastname-message-options-cb)
  * [sql](#sql)
     * [sql.open(uri, cb)](#sqlopenuri-cb)
     * [conn](#conn-2)
@@ -314,9 +314,9 @@ redis.do('get', 'key', function(err, value) end)
 
 `function reply(err, result)`
 
-#### rpc.call(name, message, cb?)
+#### rpc.call(name, message, options?, cb?)
 
-#### rpc.broadcast(name, message, cb?)
+#### rpc.broadcast(name, message, options?, cb?)
 
 ### sql
 

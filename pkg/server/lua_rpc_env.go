@@ -23,7 +23,7 @@ func (env *luaRPCEnv) Register(name string) {
 }
 func (env *luaRPCEnv) Call(ctx context.Context, req *coreRPC.Request, cb func(*coreRPC.Response)) {
 	go func() {
-		body, err := env.server.luaRPCCall(ctx, req.Name, req.Body)
+		body, err := env.server.luaRPCCall(ctx, req)
 		cb(&coreRPC.Response{
 			Body:  body,
 			Error: err,
@@ -32,7 +32,7 @@ func (env *luaRPCEnv) Call(ctx context.Context, req *coreRPC.Request, cb func(*c
 }
 func (env *luaRPCEnv) Broadcast(ctx context.Context, req *coreRPC.Request, cb func([]*coreRPC.Response)) {
 	go func() {
-		list := env.server.luaRPCBroadcast(ctx, req.Name, req.Body)
+		list := env.server.luaRPCBroadcast(ctx, req)
 		cb(list)
 	}()
 }

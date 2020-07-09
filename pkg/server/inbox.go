@@ -2,6 +2,7 @@ package server
 
 import (
 	"sync"
+	"time"
 
 	coreRPC "github.com/joesonw/drlee/pkg/core/rpc"
 	"github.com/joesonw/drlee/pkg/utils"
@@ -52,6 +53,7 @@ func (inbox *Inbox) Broadcast(req *RPCRequest) []string {
 			Body:       req.Body,
 			NodeName:   req.NodeName,
 			IsLoopBack: req.IsLoopBack,
+			ExpiresAt:  req.Timestamp.Add(req.Timeout),
 		}
 	}
 	return ids
@@ -73,12 +75,20 @@ func (inbox *Inbox) NewConsumer(id int) <-chan *coreRPC.Request {
 					if err := utils.UnmarshalGOB(data, req); err != nil {
 						continue
 					}
+					var expiresAt time.Time
+					if req.Timeout != 0 {
+						expiresAt = req.Timestamp.Add(req.Timeout)
+						if expiresAt.Before(time.Now()) {
+							continue
+						}
+					}
 					ch <- &coreRPC.Request{
 						ID:         req.ID,
 						Name:       req.Name,
 						Body:       req.Body,
 						NodeName:   req.NodeName,
 						IsLoopBack: req.IsLoopBack,
+						ExpiresAt:  expiresAt,
 					}
 					continue
 				}

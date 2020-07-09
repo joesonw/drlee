@@ -11,6 +11,29 @@ type Type interface {
 	setValue(value lua.LValue)
 }
 
+type AnyType struct {
+	value lua.LValue
+}
+
+func (AnyType) Type() lua.LValueType {
+	return lua.LTString
+}
+
+func (t *AnyType) setValue(value lua.LValue) {
+	t.value = value
+}
+
+func (t AnyType) Value() lua.LValue {
+	return t.value
+}
+
+func Any(value ...lua.LValue) *AnyType {
+	if len(value) > 0 {
+		return &AnyType{value[0]}
+	}
+	return &AnyType{lua.LNil}
+}
+
 type NumberType struct {
 	value lua.LNumber
 }

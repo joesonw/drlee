@@ -26,25 +26,30 @@ func (b RegistryBroadcast) Invalidates(other memberlist.Broadcast) bool {
 
 func (b RegistryBroadcast) Finished() {}
 
-func (s *Server) luaRPCCall(ctx context.Context, name string, body []byte) ([]byte, error) {
+func (s *Server) luaRPCCall(ctx context.Context, req *coreRPC.Request) ([]byte, error) {
 	s.localServicesMu.RLock()
-	_, hasLocal := s.localServices[name]
+	_, hasLocal := s.localServices[req.Name]
 	s.localServicesMu.RUnlock()
+	var timeout time.Duration
+	if exp := req.ExpiresAt; !exp.IsZero() {
+		timeout = time.Until(exp)
+	}
 	if hasLocal {
 		return s.callLuaRPCMethod(ctx, &RPCRequest{
 			ID:         uuid.NewV4().String(),
-			Name:       name,
-			Body:       body,
+			Name:       req.Name,
+			Body:       req.Body,
 			Timestamp:  time.Now(),
+			Timeout:    timeout,
 			IsLoopBack: true,
 		})
 	}
 
 	s.servicesMu.RLock()
-	group, ok := s.services[name]
+	group, ok := s.services[req.Name]
 	if !ok {
 		s.servicesMu.RUnlock()
-		return nil, fmt.Errorf("service \"%s\" is not registered in cluster", name)
+		return nil, fmt.Errorf("service \"%s\" is not registered in cluster", req.Name)
 	}
 
 	var totalWeight float64
@@ -66,44 +71,55 @@ func (s *Server) luaRPCCall(ctx context.Context, name string, body []byte) ([]by
 
 	rpc := s.getRemoteRPC(nodeName)
 	if rpc == nil {
-		return nil, fmt.Errorf("service \"%s\" is not registered in cluster", name)
+		return nil, fmt.Errorf("service \"%s\" is not registered in cluster", req.Name)
 	}
 
 	callRes, err := rpc.RPCCall(ctx, &proto.CallRequest{
-		Name:     name,
-		Body:     body,
-		NodeName: s.members.LocalNode().Name,
+		Name:                req.Name,
+		Body:                req.Body,
+		NodeName:            s.members.LocalNode().Name,
+		TimeoutMilliseconds: timeout.Milliseconds(),
 	})
 	if err != nil {
 		return nil, err
 	}
 	ch := s.replybox.Watch(callRes.ID)
-	res := <-ch
-	if res.IsError {
-		return nil, errors.New(string(res.Result))
+	select {
+	case <-ctx.Done():
+		s.replybox.Delete(callRes.ID)
+		return nil, ctx.Err()
+	case res := <-ch:
+		if res.IsError {
+			return nil, errors.New(string(res.Result))
+		}
+		return res.Result, nil
 	}
-	return res.Result, nil
 }
 
-func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) []*coreRPC.Response {
+func (s *Server) luaRPCBroadcast(ctx context.Context, req *coreRPC.Request) []*coreRPC.Response {
 	var responseIDList []string
+	var timeout time.Duration
+	if exp := req.ExpiresAt; !exp.IsZero() {
+		timeout = time.Until(exp)
+	}
 
 	s.localServicesMu.RLock()
-	_, hasLocal := s.localServices[name]
+	_, hasLocal := s.localServices[req.Name]
 	s.localServicesMu.RUnlock()
 	if hasLocal {
 		ids := s.inbox.Broadcast(&RPCRequest{
 			ID:         uuid.NewV4().String(),
-			Name:       name,
-			Body:       body,
+			Name:       req.Name,
+			Body:       req.Body,
 			Timestamp:  time.Now(),
+			Timeout:    timeout,
 			IsLoopBack: true,
 		})
 		responseIDList = append(responseIDList, ids...)
 	}
 
 	s.servicesMu.RLock()
-	group, ok := s.services[name]
+	group, ok := s.services[req.Name]
 	s.servicesMu.RUnlock()
 
 	if ok {
@@ -114,7 +130,7 @@ func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) 
 				responseIDList = append(responseIDList, id)
 				s.replybox.Insert(&RPCResponse{
 					ID:        id,
-					Result:    []byte(fmt.Sprintf("service \"%s\" is not registered in cluster", name)),
+					Result:    []byte(fmt.Sprintf("service \"%s\" is not registered in cluster", req.Name)),
 					Timestamp: time.Now(),
 					IsError:   true,
 				})
@@ -122,9 +138,10 @@ func (s *Server) luaRPCBroadcast(ctx context.Context, name string, body []byte) 
 			}
 
 			res, err := rpc.RPCBroadcast(ctx, &proto.BroadcastRequest{
-				Name:     name,
-				Body:     body,
-				NodeName: s.members.LocalNode().Name,
+				Name:                req.Name,
+				Body:                req.Body,
+				NodeName:            s.members.LocalNode().Name,
+				TimeoutMilliseconds: timeout.Milliseconds(),
 			})
 			if err != nil {
 				id := uuid.NewV4().String()
