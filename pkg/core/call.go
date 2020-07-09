@@ -78,7 +78,7 @@ func (call *callLuaRecoverable) OnError(err error) {
 
 func (callLuaRecoverable) IsCall() {}
 
-func LuaCatch(fn *lua.LFunction, onError func(error), args ...lua.LValue) LuaCall {
+func ProtectedLua(fn *lua.LFunction, onError func(error), args ...lua.LValue) LuaCall {
 	return &callLuaRecoverable{
 		fn:      fn,
 		args:    args,

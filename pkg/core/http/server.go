@@ -81,7 +81,7 @@ func (s *uvServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.ec.Call(core.Scoped(func(L *lua.LState) error {
 		req := NewRequest(L, r, s.ec, resource)
 		res := NewResponseWriter(L, w, ch, s.ec)
-		s.ec.Call(core.LuaCatch(s.handler, func(err error) {
+		s.ec.Call(core.ProtectedLua(s.handler, func(err error) {
 			ch <- err
 		}, req.Value(), res.Value()))
 		return nil

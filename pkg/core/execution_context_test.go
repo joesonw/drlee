@@ -64,7 +64,7 @@ var _ = Describe("ExecutionContext", func() {
 		Expect(err.Error()).To(Equal(" from lua\nstack traceback:\n\t[G]: in main chunk\n\t[G]: ?"))
 
 		caughtErr := make(chan error, 1)
-		ec.Call(LuaCatch(fn, func(err error) {
+		ec.Call(ProtectedLua(fn, func(err error) {
 			caughtErr <- err
 		}, lua.LBool(true)))
 		err = <-caughtErr
