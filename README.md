@@ -11,7 +11,7 @@ I'm still doing extensive test on my own (with some real world scenarios). After
  * RPC calls are transported through direct GRPC connection between/among each nodes.
  * Each node has a inbox/reply queue, thus unhandled messages are stored on hdd (nsq-diskqueue).
  
- ![architecture](!./architecture.png)
+ ![architecture](./architecture.png)
  
 # Example
 
